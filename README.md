@@ -1,227 +1,296 @@
-# Telegram FAQ Bot MVP
+# 🤖 FAQ Bot - Инвестициялық Куратор
 
-Telegram-бот с видеоответами для обучения студентов инвестициям.
+Telegram бот студенттер үшін инвестициялар туралы сұрақ-жауаптармен және видео түсініктемелермен.
 
-## Технологии
+## 🎯 Мүмкіндіктер
 
-- Python 3.11
-- aiogram 3.3
-- FastAPI
-- PostgreSQL 15
-- Docker & Docker Compose
-- SQLAlchemy (async)
+- ✅ FAQ жүйесі видео жауаптармен
+- ✅ Қазақ тілінде толық интерфейс
+- ✅ Категориялар бойынша навигация
+- ✅ Production-ready архитектура
+- ✅ Docker қолдауы
+- ✅ Автоматты retry және fallback
+- ✅ Толық логирование
+- ✅ Health checks
 
-## Структура проекта
+## 🏗️ Архитектура
 
 ```
-telegram-faq-bot/
-├── bot/              # Telegram бот
+faq-bot/
 ├── api/              # FastAPI backend
-├── videos/           # Видеофайлы
-├── init_db/          # SQL скрипты инициализации
+│   └── app/
+│       ├── api/      # Routes (endpoints)
+│       ├── core/     # Database, logging, exceptions
+│       ├── models/   # SQLAlchemy models
+│       ├── repositories/ # Data access layer
+│       ├── schemas/  # Pydantic schemas
+│       └── services/ # Business logic
+│
+├── bot/              # Telegram bot
+│   └── app/
+│       ├── core/     # Database, logging
+│       ├── handlers/ # Message/callback handlers
+│       ├── keyboards/ # Inline keyboards
+│       ├── middlewares/ # Logging middleware
+│       └── services/ # API client, video service
+│
+├── init_db/          # Database initialization
+├── videos/           # Video files
 └── docker-compose.yml
 ```
 
-## Быстрый старт (локально)
+## 🚀 Қалай жүктеп іске қосу
 
-### 1. Клонировать репозиторий
+### 1. Репозиторийді клондау
 
 ```bash
-git clone <repo-url>
-cd telegram-faq-bot
+git clone <your-repo-url>
+cd faq-bot
 ```
 
-### 2. Создать .env файл
+### 2. Environment файлын жасау
 
 ```bash
 cp .env.example .env
 ```
 
-Заполнить `.env` файл:
+`.env` файлын толтырыңыз:
 
-- `BOT_TOKEN` — токен от [@BotFather](https://t.me/BotFather)
-- `POSTGRES_PASSWORD` — придумать надёжный пароль
-- Остальные параметры можно оставить по умолчанию
+```env
+# Database
+POSTGRES_DB=faq_bot
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_secure_password
 
-### 3. Добавить видеофайлы
+# Bot
+BOT_TOKEN=your_telegram_bot_token
 
-Поместить `.mp4` файлы в папку `videos/`:
-
-- `stocks_intro.mp4`
-- `bonds_intro.mp4`
-- `broker_account.mp4`
-- `diversification.mp4`
-- `financial_reports.mp4`
-
-**ВАЖНО:** названия файлов должны совпадать с `video_url` в таблице `faq`.
-
-### 4. Запустить проект
-
-```bash
-docker-compose up --build
+# API
+VIDEO_BASE_URL=http://localhost:8000
+ENVIRONMENT=development
+LOG_LEVEL=INFO
 ```
 
-Первый запуск займёт несколько минут (скачивание образов, сборка).
-
-### 5. Проверить работу
-
-- Откройте Telegram и найдите своего бота
-- Отправьте `/start`
-- Выберите категорию и вопрос
-- Получите текстовый ответ и видео
-
-### 6. Проверить API
-
-Откройте в браузере: [http://localhost:8000/docs](http://localhost:8000/docs)
-
-## API Endpoints
-
-- `GET /` — health check
-- `GET /faq/categories` — список категорий
-- `GET /faq/category/{category}` — вопросы из категории
-- `GET /faq/{faq_id}` — конкретный FAQ
-- `GET /videos/{filename}` — статичные видеофайлы
-
-## База данных
-
-### Таблицы
-
-**faq**
-
-- Хранит вопросы, ответы и ссылки на видео
-
-**logs**
-
-- Логирует все действия пользователей
-
-### Подключение к БД (для отладки)
+### 3. Docker арқылы жүктеу
 
 ```bash
-docker exec -it faq_postgres psql -U faq_user -d faq_db
-```
+# Барлық сервистерді жүктеу
+docker-compose up -d
 
-SQL запросы:
+# Логтарды көру
+docker-compose logs -f
 
-```sql
--- Посмотреть все FAQ
-SELECT * FROM faq;
-
--- Посмотреть логи
-SELECT * FROM logs ORDER BY created_at DESC LIMIT 10;
-
--- Статистика по пользователям
-SELECT telegram_id, COUNT(*) as requests
-FROM logs
-GROUP BY telegram_id
-ORDER BY requests DESC;
-```
-
-## Остановка проекта
-
-```bash
+# Тоқтату
 docker-compose down
 ```
 
-Удалить все данные (включая БД):
+### 4. Видео файлдарын қосу
+
+Видео файлдарды `videos/` папкасына салыңыз:
 
 ```bash
-docker-compose down -v
+videos/
+├── tabys_pro_bonds.mp4
+├── freedom_second_account.mp4
+├── freedom_support.mp4
+└── currency_exchange.mp4
 ```
 
-## Деплой на VPS
+## 🔧 Development режимі
 
-### 1. Настроить сервер
+### API-ді локальда жүктеу
 
 ```bash
-# Установить Docker и Docker Compose на сервере
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-
-# Клонировать проект
-git clone <repo-url>
-cd telegram-faq-bot
+cd api
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
 
-### 2. Настроить .env для продакшена
+API docs: http://localhost:8000/api/docs
+
+### Ботты локальда жүктеу
+
+```bash
+cd bot
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python -m app.main
+```
+
+## 📊 Database Schema
+
+```sql
+-- FAQ таблицасы
+faq (
+    id SERIAL PRIMARY KEY,
+    question TEXT NOT NULL,
+    answer_text TEXT NOT NULL,
+    video_url TEXT,
+    category VARCHAR(100) NOT NULL,
+    language VARCHAR(10) DEFAULT 'kk',
+    created_at TIMESTAMP WITH TIME ZONE
+)
+
+-- Logs таблицасы
+logs (
+    id SERIAL PRIMARY KEY,
+    telegram_id VARCHAR(100) NOT NULL,
+    question TEXT,
+    matched_faq_id INTEGER,
+    confidence FLOAT,
+    created_at TIMESTAMP WITH TIME ZONE
+)
+```
+
+## 🎨 UX Мысалдар
+
+### Приветствие
+
+```
+Сәлем, Арман! 👋
+
+Мен – сенің инвестициялар бойынша AI-кураторыңмын! 🎯
+
+Менде:
+📊 Инвестиция туралы барлық сұрақтарға жауап бар
+🎥 Әрбір жауапқа видео-түсініктеме қосылған
+💡 Практикалық кеңестер мен нұсқаулар
+
+Өзіңді қызықтыратын тақырыпты таңда – бірге үйренейік! 🚀
+```
+
+### Категориялар
+
+- 📱 Tabys Pro
+- 🏦 Freedom Broker
+- 📚 Негіздер
+- 🚀 Қайдан бастау
+
+## 🔒 Production Deployment
+
+### Environment variables
 
 ```env
-POSTGRES_PASSWORD=<сильный_пароль>
-BOT_TOKEN=<токен_бота>
-VIDEO_BASE_URL=https://your-domain.com
-API_BASE_URL=http://api:8000
-
-# Опционально: включить webhook
+ENVIRONMENT=production
+LOG_LEVEL=WARNING
 WEBHOOK_ENABLED=true
-WEBHOOK_URL=https://your-domain.com
-WEBHOOK_PATH=/webhook
+WEBHOOK_URL=https://yourdomain.com
+CORS_ORIGINS=https://yourdomain.com
 ```
 
-### 3. Настроить Nginx (опционально)
+### Nginx конфигурациясы
 
-Для раздачи видео через домен нужен reverse proxy.
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
 
-### 4. Запустить
-
-```bash
-docker-compose up -d
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
 ```
 
-### 5. Проверить логи
+## 📝 API Endpoints
+
+### FAQ
+
+- `GET /faq/categories` - Категориялар тізімі
+- `GET /faq/category/{category}` - Категория бойынша FAQ
+- `GET /faq/{id}` - FAQ бір жазба
+- `POST /faq/` - Жаңа FAQ жасау
+- `PATCH /faq/{id}` - FAQ жаңарту
+- `DELETE /faq/{id}` - FAQ өшіру
+
+### Health
+
+- `GET /health` - Health check
+
+## 🧪 Testing
 
 ```bash
+# API тестілеу
+cd api
+pytest
+
+# Bot тестілеу
+cd bot
+pytest
+```
+
+## 📈 Monitoring
+
+### Healthchecks
+
+```bash
+# API health
+curl http://localhost:8000/health
+
+# Database connection
+docker-compose exec postgres pg_isready
+```
+
+### Logs
+
+```bash
+# Барлық логтар
+docker-compose logs -f
+
+# Бот логтары
 docker-compose logs -f bot
+
+# API логтары
 docker-compose logs -f api
 ```
 
-## Добавление новых FAQ
+## 🛠️ Troubleshooting
 
-### Вариант 1: Через SQL
+### Бот жұмысістемейді
 
-```sql
-INSERT INTO faq (question, answer_text, video_url, category)
-VALUES (
-    'Что такое ETF?',
-    'ETF — это биржевой инвестиционный фонд...',
-    'etf_intro.mp4',
-    'basics'
-);
+1. Token-ды тексеріңіз:
+
+```bash
+docker-compose logs bot | grep "BOT_TOKEN"
 ```
 
-### Вариант 2: Через API (TODO)
+2. API қолжетімділігін тексеріңіз:
 
-Можно добавить admin endpoint для управления FAQ.
-
-## Troubleshooting
-
-### Бот не отвечает
-
-- Проверить логи: `docker-compose logs bot`
-- Проверить токен в .env
-- Убедиться, что контейнеры запущены: `docker-compose ps`
-
-### Видео не отправляются
-
-- Проверить наличие файлов в `videos/`
-- Проверить `VIDEO_BASE_URL` в .env
-- Проверить логи API: `docker-compose logs api`
-
-### Ошибки БД
-
-- Проверить, что PostgreSQL запустился: `docker-compose ps`
-- Проверить логи: `docker-compose logs postgres`
-- Пересоздать БД: `docker-compose down -v && docker-compose up`
-
-## Лицензия
-
-MIT
-
+```bash
+curl http://localhost:8000/health
 ```
 
----
+### Видео жүктелмейді
 
-## 22. videos/.gitkeep
+1. `videos/` папкасын тексеріңіз
+2. Файл аттарын БД-мен салыстырыңыз
+3. Файл өлшемін тексеріңіз (max 50MB)
+
+### Database қателері
+
+```bash
+# Database логтары
+docker-compose logs postgres
+
+# Қайта жүктеу
+docker-compose restart postgres
 ```
 
-# Эта папка для хранения видеофайлов
+## 📞 Қолдау
 
-# Добавьте сюда .mp4 файлы согласно названиям из БД
+Сұрақтар болса:
+
+- Issue ашыңыз GitHub-та
+- Құжаттаманы оқыңыз
+
+## 📄 License
+
+MIT License
+
+## 🎉 Алғыс
+
+Бұл проект студенттерге инвестиция туралы білім беру үшін жасалды.

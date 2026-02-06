@@ -4,9 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
-venv/
-ENV/
 build/
 develop-eggs/
 dist/
@@ -22,10 +19,11 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Environment
-.env
-.env.local
+MANIFEST
+venv/
+ENV/
+env/
+.venv
 
 # IDEs
 .vscode/
@@ -33,23 +31,35 @@ wheels/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
-Thumbs.db
 
-# Docker
+# Environment
+.env
+.env.local
+.env.production
+
+# Logs
 *.log
+logs/
 
 # Database
 *.db
 *.sqlite
-
-# Videos (не коммитим большие файлы)
-videos/*.mp4
-videos/*.avi
-videos/*.mov
-!videos/.gitkeep
-
-# PostgreSQL
+*.sqlite3
 postgres_data/
+
+# Docker
+docker-compose.override.yml
+
+# Videos (если не хотите коммитить)
+# videos/*.mp4
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Temporary files
+*.tmp
+*.bak

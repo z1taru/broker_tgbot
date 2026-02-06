@@ -5,19 +5,24 @@ services:
     image: postgres:15-alpine
     container_name: faq_postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB:-faq_bot}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init_db:/docker-entrypoint-initdb.d
+      - ./init_db:/docker-entrypoint-initdb.d:ro
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-faq_bot}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - faq_network
 
   api:
     build:
@@ -25,16 +30,27 @@ services:
       dockerfile: Dockerfile
     container_name: faq_api
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      VIDEO_BASE_URL: ${VIDEO_BASE_URL}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-faq_bot}
+      VIDEO_BASE_URL: ${VIDEO_BASE_URL:-http://localhost:8000}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
     volumes:
       - ./videos:/app/videos:ro
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - faq_network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import requests; requests.get('http://localhost:8000/health', timeout=5)\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   bot:
     build:
@@ -43,17 +59,29 @@ services:
     container_name: faq_bot
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      API_BASE_URL: ${API_BASE_URL}
-      WEBHOOK_ENABLED: ${WEBHOOK_ENABLED}
-      WEBHOOK_URL: ${WEBHOOK_URL}
-      WEBHOOK_PATH: ${WEBHOOK_PATH}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-faq_bot}
+      API_BASE_URL: ${API_BASE_URL:-http://api:8000}
+      API_TIMEOUT: ${API_TIMEOUT:-30}
+      WEBHOOK_ENABLED: ${WEBHOOK_ENABLED:-false}
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      WEBHOOK_PATH: ${WEBHOOK_PATH:-/webhook}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-kk}
+      MAX_VIDEO_SIZE_MB: ${MAX_VIDEO_SIZE_MB:-50}
+      VIDEO_RETRY_ATTEMPTS: ${VIDEO_RETRY_ATTEMPTS:-3}
     depends_on:
       postgres:
         condition: service_healthy
       api:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - faq_network
 
 volumes:
   postgres_data:
+    driver: local
+
+networks:
+  faq_network:
+    driver: bridge
