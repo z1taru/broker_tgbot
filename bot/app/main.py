@@ -1,3 +1,4 @@
+# bot/app/main.py
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
@@ -5,7 +6,7 @@ from aiogram.enums import ParseMode
 
 from app.config import settings
 from app.core.logging_config import setup_logging
-from app.handlers import start, faq, errors
+from app.handlers import start, message, errors
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ async def main():
     dp = Dispatcher()
     
     dp.include_router(start.router)
-    dp.include_router(faq.router)
+    dp.include_router(message.router)
     dp.include_router(errors.router)
     
     logger.info("Bot started")

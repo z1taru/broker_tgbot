@@ -1,3 +1,4 @@
+# api/Dockerfile
 FROM python:3.11-slim as builder
 WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
@@ -9,6 +10,7 @@ WORKDIR /app
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 COPY --from=builder /root/.local /home/appuser/.local
 COPY --chown=appuser:appuser ./app ./app
+COPY --chown=appuser:appuser ./app/scripts ./app/scripts
 USER appuser
 ENV PATH=/home/appuser/.local/bin:$PATH
 ENV PYTHONPATH=/app

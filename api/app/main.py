@@ -10,13 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import faq, health
+from app.api.routes import faq, health, ask
 from app.config import settings
 from app.core.database import check_db_connection, close_db_connection
 from app.core.exceptions import AppException
 from app.core.logging_config import get_logger, setup_logging
 
-# Настройка логирования
 setup_logging()
 logger = get_logger(__name__)
 
@@ -26,7 +25,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     Управление жизненным циклом приложения
     """
-    # Startup
     logger.info("🚀 Starting FAQ Bot API...")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     
@@ -41,13 +39,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     yield
     
-    # Shutdown
     logger.info("🛑 Shutting down FAQ Bot API...")
     await close_db_connection()
     logger.info("✅ API shutdown complete")
 
 
-# Создание приложения
 app = FastAPI(
     title="FAQ Bot API",
     description="API для Telegram бота-куратора с видеоответами",
@@ -58,7 +54,6 @@ app = FastAPI(
 )
 
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -68,7 +63,6 @@ app.add_middleware(
 )
 
 
-# Обработчик кастомных исключений
 @app.exception_handler(AppException)
 async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     """Обработка кастомных исключений приложения"""
@@ -88,7 +82,6 @@ async def app_exception_handler(request: Request, exc: AppException) -> JSONResp
     )
 
 
-# Обработчик ошибок валидации
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
@@ -107,7 +100,6 @@ async def validation_exception_handler(
     )
 
 
-# Обработчик неожиданных ошибок
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Обработка всех неожиданных ошибок"""
@@ -124,12 +116,11 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
     )
 
 
-# Подключение роутеров
 app.include_router(health.router, tags=["Health"])
 app.include_router(faq.router, prefix="/faq", tags=["FAQ"])
+app.include_router(ask.router, prefix="/api", tags=["AI"])
 
 
-# Раздача статических файлов (видео)
 try:
     app.mount("/videos", StaticFiles(directory="/app/videos"), name="videos")
     logger.info("✅ Static files (videos) mounted at /videos")

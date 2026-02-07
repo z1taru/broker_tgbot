@@ -1,3 +1,4 @@
+# api/app/config.py
 from functools import lru_cache
 from typing import Literal
 from pydantic import PostgresDsn, field_validator
@@ -13,10 +14,16 @@ class Settings(BaseSettings):
     )
     
     DATABASE_URL: PostgresDsn
-    VIDEO_BASE_URL: str = "http://localhost:8000"
+    VIDEO_BASE_URL: str = "http://37.151.92.154:8000/videos"
     ENVIRONMENT: Literal["development", "production", "testing"] = "development"
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     CORS_ORIGINS: str = "*"
+    
+    OPENAI_API_KEY: str = ""
+    AI_MODEL: str = "gpt-4o-mini"
+    AI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    AI_SIMILARITY_THRESHOLD_HIGH: float = 0.7
+    AI_SIMILARITY_THRESHOLD_LOW: float = 0.3
     
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

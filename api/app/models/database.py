@@ -2,6 +2,8 @@ from datetime import datetime
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
 from app.core.database import Base
+from pgvector.sqlalchemy import Vector
+
 
 
 class FAQ(Base):
@@ -14,6 +16,8 @@ class FAQ(Base):
     category = Column(String(100), nullable=False, index=True)
     language = Column(String(10), default="kk", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    embedding = Column(Vector(1536), nullable=True)
     
     def __repr__(self) -> str:
         return f"<FAQ(id={self.id}, category={self.category})>"
