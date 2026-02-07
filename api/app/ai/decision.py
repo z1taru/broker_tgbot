@@ -1,6 +1,5 @@
 # api/app/ai/decision.py
-from typing import List, Optional, Tuple
-from app.models.database import FAQ
+from typing import List, Tuple, Dict, Any
 from app.config import settings
 from app.core.logging_config import get_logger
 
@@ -14,10 +13,13 @@ class DecisionEngine:
     
     def make_decision(
         self,
-        faqs_with_scores: List[Tuple[FAQ, float]]
+        faqs_with_scores: List[Tuple[Dict[str, Any], float]]
     ) -> dict:
         """
         Decide action based on similarity scores
+        
+        Args:
+            faqs_with_scores: List of tuples (faq_dict, similarity_score)
         
         Returns:
             dict with keys: action, faq (optional), score, all_matches

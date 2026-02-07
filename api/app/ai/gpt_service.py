@@ -1,9 +1,8 @@
 # api/app/ai/gpt_service.py
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 import httpx
 from openai import OpenAI
 from app.config import settings
-from app.models.database import FAQ
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -21,13 +20,13 @@ class GPTService:
     async def generate_clarification(
         self,
         user_question: str,
-        similar_faqs: List[Tuple[FAQ, float]],
+        similar_faqs: List[Tuple[Dict[str, Any], float]],
         language: str
     ) -> str:
         """Generate clarification question when confidence is medium"""
         
         faq_list = "\n".join([
-            f"- {faq.question} (similarity: {score:.2f})"
+            f"- {faq['question']} (similarity: {score:.2f})"
             for faq, score in similar_faqs[:3]
         ])
         

@@ -31,29 +31,51 @@ async def ask_question(
         
         logger.info(f"Processing question from user {request.user_id} in {language}")
         
+        # Создаём embedding для вопроса пользователя
         embedding_service = EmbeddingService()
         query_embedding = await embedding_service.create_embedding(request.question)
         
+        # Ищем похожие FAQ
         similarity_service = SimilarityService()
-        similar_faqs = await similarity_service.find_similar_faqs(
+        rows = await similarity_service.find_similar_faqs(
             session=session,
             query_embedding=query_embedding,
             language=language,
         )
         
+        # Преобразуем Row объекты в список (FAQ_data, score)
+        # Row содержит: id, question, answer_text, video_url, category, language, created_at, similarity
+        faqs_with_scores = []
+        for row in rows:
+            # Создаём словарь с данными FAQ
+            faq_data = {
+                'id': row[0],
+                'question': row[1],
+                'answer_text': row[2],
+                'video_url': row[3],
+                'category': row[4],
+                'language': row[5],
+                'created_at': row[6]
+            }
+            similarity_score = row[7]  # similarity - последняя колонка
+            faqs_with_scores.append((faq_data, similarity_score))
+        
+        logger.info(f"Found {len(faqs_with_scores)} similar FAQs")
+        
+        # Принимаем решение на основе similarity scores
         decision_engine = DecisionEngine()
-        decision = decision_engine.make_decision(similar_faqs)
+        decision = decision_engine.make_decision(faqs_with_scores)
         
         action = decision["action"]
         
         if action == "direct_answer":
-            faq = decision["faq"]
+            faq_data = decision["faq"]
             return AskResponse(
                 action="direct_answer",
                 question=request.question,
-                answer_text=faq.answer_text,
-                video_url=faq.video_url,
-                faq_id=faq.id,
+                answer_text=faq_data['answer_text'],
+                video_url=faq_data.get('video_url'),
+                faq_id=faq_data['id'],
                 confidence=decision["score"]
             )
         
@@ -71,7 +93,7 @@ async def ask_question(
                 confidence=decision["score"]
             )
         
-        else:
+        else:  # no_match
             gpt_service = GPTService()
             fallback = await gpt_service.generate_fallback_response(
                 user_question=request.question,
