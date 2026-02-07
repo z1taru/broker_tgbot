@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
-from bot.app.core.database import Base
+from app.core.database import Base
 
 
 class FAQ(Base):

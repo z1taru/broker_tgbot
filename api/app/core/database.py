@@ -1,6 +1,8 @@
 import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from sqlalchemy import text
+
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -75,7 +77,7 @@ async def check_db_connection(max_retries: int = 5, retry_delay: int = 2) -> boo
     for attempt in range(1, max_retries + 1):
         try:
             async with engine.connect() as conn:
-                await conn.execute("SELECT 1")
+                await conn.execute(text("SELECT 1"))
                 logger.info("Database connection successful")
                 return True
         except Exception as e:

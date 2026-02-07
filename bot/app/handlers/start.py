@@ -4,8 +4,8 @@ from aiogram.types import Message, CallbackQuery
 import aiohttp
 import logging
 
-from bot.app.config import settings
-from bot.app.keyboards.inline import get_categories_keyboard
+from app.config import settings
+from app.keyboards.inline import get_categories_keyboard
 
 router = Router()
 logger = logging.getLogger(__name__)

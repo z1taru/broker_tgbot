@@ -2,7 +2,7 @@ import aiohttp
 from typing import List, Dict, Optional
 import logging
 
-from bot.app.config import settings
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 

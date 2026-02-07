@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     VIDEO_BASE_URL: str = "http://localhost:8000"
     ENVIRONMENT: Literal["development", "production", "testing"] = "development"
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
-    CORS_ORIGINS: list[str] = ["*"]
+    CORS_ORIGINS: str = "*"
     
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

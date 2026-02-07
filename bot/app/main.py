@@ -3,9 +3,9 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 
-from bot.app.config import settings
-from bot.app.core.logging_config import setup_logging
-from bot.app.handlers import start, faq, errors
+from app.config import settings
+from app.core.logging_config import setup_logging
+from app.handlers import start, faq, errors
 
 setup_logging()
 logger = logging.getLogger(__name__)

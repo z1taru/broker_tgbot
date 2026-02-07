@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import declarative_base
 
-from bot.app.config import settings
+from app.config import settings
 
 Base = declarative_base()
 _engine: AsyncEngine | None = None
@@ -19,7 +19,7 @@ def get_engine() -> AsyncEngine:
     
     if _engine is None:
         _engine = create_async_engine(
-            "postgresql+asyncpg://user:password@db:5432/faqbot",
+            str(settings.DATABASE_URL),
             echo=False,
             future=True,
             pool_pre_ping=True,

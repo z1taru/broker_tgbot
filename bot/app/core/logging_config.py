@@ -1,6 +1,6 @@
 import logging
 import sys
-from bot.app.config import settings
+from app.config import settings
 
 
 def setup_logging() -> None:

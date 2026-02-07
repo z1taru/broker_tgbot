@@ -3,10 +3,10 @@ from aiogram.types import CallbackQuery, BufferedInputFile
 import aiohttp
 import logging
 
-from bot.app.config import settings
-from bot.app.keyboards.inline import get_questions_keyboard, get_back_keyboard
-from bot.app.core.database import get_session_maker
-from bot.app.models.database import Log
+from app.config import settings
+from app.keyboards.inline import get_questions_keyboard, get_back_keyboard
+from app.core.database import get_session_maker
+from app.models.database import Log
 
 router = Router()
 logger = logging.getLogger(__name__)
