@@ -1,4 +1,11 @@
-# В начале файла
+# api/app/api/routes/ask.py
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_session
+from app.schemas.ask import AskRequest, AskResponse
+from app.core.logging_config import get_logger
+
 from app.ai.intent_router import IntentRouter
 from app.ai.gpt_service import GPTService
 from app.ai.embeddings_enhanced import EmbeddingService
@@ -6,7 +13,10 @@ from app.ai.search_enhanced import EnhancedSearchService
 from app.ai.language_detector import LanguageDetector
 from app.ai.decision import DecisionEngine
 
-@routes.post("/ask", response_model=AskResponse)
+logger = get_logger(__name__)
+router = APIRouter()
+
+@router.post("/ask", response_model=AskResponse)
 async def ask_question(
     request: AskRequest,
     session: AsyncSession = Depends(get_session)
