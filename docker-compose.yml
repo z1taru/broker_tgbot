@@ -94,6 +94,8 @@ services:
       DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-kk}
       MAX_VIDEO_SIZE_MB: ${MAX_VIDEO_SIZE_MB:-50}
       VIDEO_RETRY_ATTEMPTS: ${VIDEO_RETRY_ATTEMPTS:-3}
+    volumes:
+      - ./videos:/app/videos:ro 
     depends_on:
       postgres:
         condition: service_healthy

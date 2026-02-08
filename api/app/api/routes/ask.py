@@ -143,21 +143,16 @@ async def ask_question(
             
             best_score = faqs_with_scores[0][1]
             
-            # HIGH confidence (≥ 0.65)
+            # HIGH confidence (≥ 0.65) - ИСПРАВЛЕНО: возвращаем video_url без добавления в текст
             if best_score >= 0.65:
                 faq = faqs_with_scores[0][0]
                 
-                answer = faq['answer_text']
-                if faq.get('video_url'):
-                    if language == "kk":
-                        answer += f"\n\n🎥 Видео нұсқау: {faq['video_url']}"
-                    else:
-                        answer += f"\n\n🎥 Видео инструкция: {faq['video_url']}"
-                
+                # Возвращаем чистый ответ БЕЗ добавления ссылки на видео
+                # Видео будет отправлено ботом отдельным сообщением через video_url поле
                 return AskResponse(
                     action="direct_answer",
                     question=request.question,
-                    answer_text=answer,
+                    answer_text=faq['answer_text'],
                     video_url=faq.get('video_url'),
                     faq_id=faq['id'],
                     confidence=best_score
