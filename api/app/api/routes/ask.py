@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.schemas.ask import AskRequest, AskResponse
-from app.ai.embeddings import EmbeddingService
-from app.ai.similarity import SimilarityService
+from app.ai.embeddings_enhanced import EnhancedEmbeddingService as EmbeddingService
+from app.ai.search_enhanced import EnhancedSearchService
 from app.ai.decision import DecisionEngine
 from app.ai.gpt_service import GPTService
 from app.ai.language_detector import LanguageDetector
@@ -36,8 +36,8 @@ async def ask_question(
         query_embedding = await embedding_service.create_embedding(request.question)
         
         # Ищем похожие FAQ
-        similarity_service = SimilarityService()
-        rows = await similarity_service.find_similar_faqs(
+        search_service = EnhancedSearchService()
+        rows = await search_service.find_similar_faqs(
             session=session,
             query_embedding=query_embedding,
             language=language,

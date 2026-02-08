@@ -223,3 +223,4 @@ BEGIN
     RAISE NOTICE '📊 FAQ records: %', faq_count;
     RAISE NOTICE '📝 Log records: %', log_count;
 END $$;
+

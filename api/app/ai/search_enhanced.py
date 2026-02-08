@@ -4,6 +4,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 from app.core.logging_config import get_logger
+import json
+
 
 logger = get_logger(__name__)
 
@@ -92,78 +94,53 @@ class EnhancedSearchService:
         
         # Гибридный поиск: 70% vector, 30% keyword
         sql = text("""
-            WITH vector_scores AS (
-                SELECT 
-                    fc.id,
-                    fc.faq_id,
-                    fc.question,
-                    fc.answer_text,
-                    fc.video_url,
-                    fc.language,
-                    faq.category,
-                    faq.created_at,
-                    (1 - (fc.question_embedding <=> CAST(:embedding AS vector))) as vector_score
-                FROM faq_content fc
-                JOIN faq_v2 faq ON faq.id = fc.faq_id
-                WHERE fc.language = :language
-                AND fc.question_embedding IS NOT NULL
-                AND faq.is_active = TRUE
-            ),
-            keyword_scores AS (
-                SELECT 
-                    fc.id,
-                    SUM(
-                        CASE 
-                            WHEN fc.question_normalized ILIKE '%' || kw || '%' THEN 1.0
-                            WHEN kw = ANY(fc.question_keywords) THEN 0.5
-                            ELSE 0
-                        END
-                    ) / NULLIF(CARDINALITY(:keywords::text[]), 0) as keyword_score
-                FROM faq_content fc
-                CROSS JOIN UNNEST(:keywords::text[]) as kw
-                WHERE fc.language = :language
-                GROUP BY fc.id
-            )
-            SELECT 
-                vs.faq_id,
-                vs.question,
-                vs.answer_text,
-                vs.video_url,
-                vs.category,
-                vs.language,
-                vs.created_at,
-                (0.7 * vs.vector_score + 0.3 * COALESCE(ks.keyword_score, 0)) as hybrid_score
-            FROM vector_scores vs
-            LEFT JOIN keyword_scores ks ON vs.id = ks.id
-            ORDER BY hybrid_score DESC
-            LIMIT :limit
-        """)
-        
-        result = await session.execute(sql, {
-            "embedding": embedding_str,
-            "language": language,
-            "keywords": keywords,
-            "limit": limit
-        })
-        
-        rows = result.fetchall()
-        
-        faqs_with_scores = []
-        for row in rows:
-            faq_data = {
-                'id': row[0],
-                'question': row[1],
-                'answer_text': row[2],
-                'video_url': row[3],
-                'category': row[4],
-                'language': row[5],
-                'created_at': row[6]
-            }
-            score = row[7]
-            faqs_with_scores.append((faq_data, score))
-        
-        logger.info(f"Hybrid search found {len(faqs_with_scores)} results")
-        return faqs_with_scores
+        WITH vector_scores AS (
+        SELECT 
+            fc.id,
+            fc.faq_id,
+            fc.question,
+            fc.answer_text,
+            fc.video_url,
+            fc.language,
+            faq.category,
+            faq.created_at,
+            (1 - (fc.question_embedding <=> CAST(:embedding AS vector))) as vector_score
+        FROM faq_content fc
+        JOIN faq_v2 faq ON faq.id = fc.faq_id
+        WHERE fc.language = :language
+        AND fc.question_embedding IS NOT NULL
+        AND faq.is_active = TRUE
+    ),
+    keyword_scores AS (
+        SELECT 
+            fc.id,
+            SUM(
+                CASE 
+                    WHEN fc.question_normalized ILIKE '%' || kw || '%' THEN 1.0
+                    WHEN kw = ANY(fc.question_keywords) THEN 0.5
+                    ELSE 0
+                END
+            ) / NULLIF(CARDINALITY(CAST(:keywords AS text[])), 0) as keyword_score
+        FROM faq_content fc
+        CROSS JOIN UNNEST(CAST(:keywords AS text[])) as kw
+        WHERE fc.language = :language
+        GROUP BY fc.id
+    )
+    SELECT 
+        vs.faq_id,
+        vs.question,
+        vs.answer_text,
+        vs.video_url,
+        vs.category,
+        vs.language,
+        vs.created_at,
+        (0.7 * vs.vector_score + 0.3 * COALESCE(ks.keyword_score, 0)) as hybrid_score
+    FROM vector_scores vs
+    LEFT JOIN keyword_scores ks ON vs.id = ks.id
+    ORDER BY hybrid_score DESC
+    LIMIT :limit
+""")
+
     
     @staticmethod
     async def rerank_with_gpt(
@@ -205,7 +182,7 @@ FAQ:
                 temperature=0.3
             )
             
-            scores = eval(response.choices[0].message.content)
+            scores = json.loads(response.choices[0].message.content)
             
             # Пересчитываем scores
             reranked = []
