@@ -143,7 +143,7 @@ async def ask_question(
             
             best_score = faqs_with_scores[0][1]
             
-            # HIGH confidence (≥ 0.65) - ИСПРАВЛЕНО: возвращаем video_url без добавления в текст
+            # HIGH confidence (≥ 0.65) - ПРЯМОЙ ОТВЕТ С ВИДЕО
             if best_score >= 0.65:
                 faq = faqs_with_scores[0][0]
                 
@@ -158,8 +158,10 @@ async def ask_question(
                     confidence=best_score
                 )
             
-            # MEDIUM confidence (0.45-0.65) - GPT synthesizes answer
+            # MEDIUM confidence (0.45-0.65) - GPT synthesizes answer BUT KEEP VIDEO! 🔥
             elif best_score >= 0.45:
+                best_faq = faqs_with_scores[0][0]
+                
                 answer = await gpt_service.generate_answer_from_faqs(
                     user_question=request.question,
                     matched_faqs=faqs_with_scores[:3],
@@ -170,6 +172,8 @@ async def ask_question(
                     action="direct_answer",
                     question=request.question,
                     answer_text=answer,
+                    video_url=best_faq.get('video_url'),  # 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ!
+                    faq_id=best_faq['id'],
                     confidence=best_score,
                     suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
                 )
