@@ -1,176 +1,218 @@
-# api/app/api/routes/ask.py
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.database import get_session
-from app.schemas.ask import AskRequest, AskResponse
+# В начале файла
+from app.ai.intent_router import IntentRouter
+from app.ai.gpt_service import GPTService
 from app.ai.embeddings_enhanced import EmbeddingService
 from app.ai.search_enhanced import EnhancedSearchService
-from app.ai.decision import DecisionEngine
-from app.ai.gpt_service import GPTService
 from app.ai.language_detector import LanguageDetector
-from app.core.logging_config import get_logger
+from app.ai.decision import DecisionEngine
 
-logger = get_logger(__name__)
-router = APIRouter()
-
-
-@router.post("/ask", response_model=AskResponse)
+@routes.post("/ask", response_model=AskResponse)
 async def ask_question(
     request: AskRequest,
     session: AsyncSession = Depends(get_session)
 ):
     """
-    AI-powered question answering endpoint - УЛУЧШЕННАЯ ВЕРСИЯ
+    CONVERSATIONAL RAG - живой диалоговый бот
     """
     try:
+        # 1. Language detection
         language = request.language
         if language == "auto":
             detector = LanguageDetector()
             language = detector.detect(request.question)
         
-        logger.info(f"🔍 Processing: '{request.question}' | User: {request.user_id} | Lang: {language}")
+        logger.info(f"🔍 Question: '{request.question}' | Lang: {language}")
         
-        # 1. Создаём embedding
-        embedding_service = EmbeddingService()
-        query_embedding = await embedding_service.create_embedding(request.question)
+        # 2. Intent Classification
+        intent_router = IntentRouter()
+        intent_result = intent_router.detect_intent(request.question, language)
         
-        # 2. Ищем похожие FAQ
-        search_service = EnhancedSearchService()
-        rows = await search_service.find_similar_faqs(
-            session=session,
-            query_embedding=query_embedding,
-            language=language,
-            limit=10  # берём топ-10 для анализа
-        )
+        intent = intent_result["intent"]
+        logger.info(f"🎯 Intent: {intent} (confidence: {intent_result['confidence']:.2f})")
         
-        # 3. Преобразуем в список (faq_data, score)
-        faqs_with_scores = []
-        for row in rows:
-            faq_data = {
-                'id': row[0],
-                'question': row[1],
-                'answer_text': row[2],
-                'video_url': row[3],
-                'category': row[4],
-                'language': row[5],
-                'created_at': row[6]
-            }
-            similarity_score = float(row[7])
-            faqs_with_scores.append((faq_data, similarity_score))
+        # 3. Обработка по интенту
+        gpt_service = GPTService()
         
-        logger.info(f"📊 Found {len(faqs_with_scores)} results. Top score: {faqs_with_scores[0][1]:.3f if faqs_with_scores else 0}")
-        
-        # 4. Умное принятие решения
-        decision_engine = DecisionEngine()
-        decision = decision_engine.make_decision(
-            faqs_with_scores,
-            user_question=request.question
-        )
-        
-        action = decision["action"]
-        score = decision["score"]
-        
-        # ============================================
-        # ОБРАБОТКА РАЗНЫХ СЦЕНАРИЕВ
-        # ============================================
-        
-        # ✅ ПРЯМОЙ ОТВЕТ (≥55%)
-        if action == "direct_answer":
-            faq_data = decision["faq"]
+        # === GREETING ===
+        if intent == "greeting":
+            response_text = await gpt_service.generate_persona_response(
+                user_question=request.question,
+                intent="greeting",
+                language=language
+            )
             
-            # Проверяем, есть ли "medium match" флаг
-            is_medium = decision.get("message") == "single_medium_match"
-            confidence_text = ""
-            
-            if is_medium and language == "kk":
-                confidence_text = "\n\n💡 Егер бұл дәл сол нәрсе болмаса - басқаша сұраңыз!"
-            elif is_medium and language == "ru":
-                confidence_text = "\n\n💡 Если это не совсем то - попробуйте переформулировать!"
+            # Добавляем варианты популярных вопросов
+            if language == "kk":
+                response_text += "\n\n💡 Мысалы:\n• Шот қалай ашамыз?\n• Облигация қалай аламыз?\n• Валюта айырбасы"
+            else:
+                response_text += "\n\n💡 Например:\n• Как открыть счет?\n• Как купить облигацию?\n• Обмен валюты"
             
             return AskResponse(
                 action="direct_answer",
                 question=request.question,
-                answer_text=faq_data['answer_text'] + confidence_text,
-                video_url=faq_data.get('video_url'),
-                faq_id=faq_data['id'],
-                confidence=score
+                answer_text=response_text,
+                confidence=1.0
             )
         
-        # 🤔 УТОЧНЕНИЕ (35-55% с несколькими вариантами)
-        elif action == "clarify":
-            # Формируем список вариантов
-            options = decision["all_matches"][:3]
-            
-            if language == "kk":
-                clarification = "Қайсысы сізге жақынырақ? 🤔\n\n"
-                for i, (faq, sc) in enumerate(options, 1):
-                    clarification += f"{i}️⃣ {faq['question']}\n"
-                clarification += "\nСанын жазыңыз немесе сұрағыңызды нақтылаңыз 👆"
-            else:
-                clarification = "Какой из этих вопросов ближе к вашему? 🤔\n\n"
-                for i, (faq, sc) in enumerate(options, 1):
-                    clarification += f"{i}️⃣ {faq['question']}\n"
-                clarification += "\nНапишите номер или уточните ваш вопрос 👆"
+        # === GENERAL ===
+        elif intent == "general":
+            response_text = await gpt_service.generate_persona_response(
+                user_question=request.question,
+                intent="general",
+                language=language
+            )
             
             return AskResponse(
-                action="clarify",
+                action="direct_answer",
                 question=request.question,
-                message=clarification,
-                confidence=score,
-                suggestions=[faq['question'] for faq, _ in options]  # для UI
+                answer_text=response_text,
+                confidence=0.9
             )
         
-        # 📋 ПОКАЗАТЬ ПОХОЖИЕ (20-35%)
-        elif action == "show_similar":
-            similar = decision["all_matches"][:5]
-            
+        # === OFF_TOPIC ===
+        elif intent == "off_topic":
             if language == "kk":
-                message = "Дәл сәйкестік таппадым, бірақ мына сұрақтар пайдалы болуы мүмкін:\n\n"
-                for i, (faq, sc) in enumerate(similar, 1):
-                    message += f"• {faq['question']}\n"
-                message += "\nОсылардың біреуін таңдаңыз немесе басқаша сұраңыз 🔄"
+                response_text = "Кешіріңіз, мен тек инвестициялар бойынша көмектесемін 📊\n\nСұрағыңыз:\n• Шот ашу\n• Облигация/акция алу\n• Валюта айырбасы\n\nБасқа тақырып бойынша куратор қызметіне жазыңыз"
             else:
-                message = "Точного совпадения не нашёл, но может помогут эти вопросы:\n\n"
-                for i, (faq, sc) in enumerate(similar, 1):
-                    message += f"• {faq['question']}\n"
-                message += "\nВыберите один из них или переформулируйте вопрос 🔄"
+                response_text = "Извините, я помогаю только по инвестициям 📊\n\nМогу помочь с:\n• Открытие счетов\n• Покупка облигаций/акций\n• Обмен валюты\n\nПо другим вопросам пишите куратору"
             
             return AskResponse(
-                action="show_similar",
+                action="direct_answer",
                 question=request.question,
-                message=message,
-                confidence=score,
-                suggestions=[faq['question'] for faq, _ in similar]
+                answer_text=response_text,
+                confidence=1.0
             )
         
-        # ❌ НЕТ ОТВЕТА (<20%)
-        else:  # no_match
-            if language == "kk":
-                fallback = (
-                    "Кешіріңіз, жауап таба алмадым 😔\n\n"
-                    "Сұрағыңызды кураторға жібердім.\n"
-                    "10:00-20:00 арасында жауап береді! ⏰\n\n"
-                    "Немесе басқаша сұраңыз 🔄"
+        # === FAQ / UNCLEAR ===
+        else:  # faq or unclear
+            # Vector search
+            embedding_service = EmbeddingService()
+            query_embedding = await embedding_service.create_embedding(request.question)
+            
+            search_service = EnhancedSearchService()
+            rows = await search_service.find_similar_faqs(
+                session=session,
+                query_embedding=query_embedding,
+                language=language,
+                limit=10
+            )
+            
+            faqs_with_scores = [
+                (
+                    {
+                        'id': row[0],
+                        'question': row[1],
+                        'answer_text': row[2],
+                        'video_url': row[3],
+                        'category': row[4]
+                    },
+                    float(row[7])
                 )
-            else:
-                fallback = (
-                    "Извините, не нашёл ответа 😔\n\n"
-                    "Отправил ваш вопрос куратору.\n"
-                    "Ответит с 10:00 до 20:00! ⏰\n\n"
-                    "Или попробуйте переформулировать 🔄"
+                for row in rows
+            ]
+            
+            if not faqs_with_scores:
+                # NO MATCH - persona fallback
+                response_text = await gpt_service.generate_persona_response(
+                    user_question=request.question,
+                    intent="no_match",
+                    language=language
+                )
+                
+                if language == "kk":
+                    response_text += "\n\n📞 Куратор қызметі: 10:00-20:00"
+                else:
+                    response_text += "\n\n📞 Служба куратора: 10:00-20:00"
+                
+                return AskResponse(
+                    action="no_match",
+                    question=request.question,
+                    message=response_text,
+                    confidence=0.0
                 )
             
-            # TODO: отправить куратору
-            # await send_to_curator(request.user_id, request.question)
+            best_score = faqs_with_scores[0][1]
             
-            return AskResponse(
-                action="no_match",
-                question=request.question,
-                message=fallback,
-                confidence=score
-            )
+            # HIGH confidence (≥ 0.65)
+            if best_score >= 0.65:
+                faq = faqs_with_scores[0][0]
+                
+                answer = faq['answer_text']
+                if faq.get('video_url'):
+                    if language == "kk":
+                        answer += f"\n\n🎥 Видео нұсқау: {faq['video_url']}"
+                    else:
+                        answer += f"\n\n🎥 Видео инструкция: {faq['video_url']}"
+                
+                return AskResponse(
+                    action="direct_answer",
+                    question=request.question,
+                    answer_text=answer,
+                    video_url=faq.get('video_url'),
+                    faq_id=faq['id'],
+                    confidence=best_score
+                )
+            
+            # MEDIUM confidence (0.45-0.65) - GPT synthesizes answer
+            elif best_score >= 0.45:
+                answer = await gpt_service.generate_answer_from_faqs(
+                    user_question=request.question,
+                    matched_faqs=faqs_with_scores[:3],
+                    language=language
+                )
+                
+                return AskResponse(
+                    action="direct_answer",
+                    question=request.question,
+                    answer_text=answer,
+                    confidence=best_score,
+                    suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
+                )
+            
+            # LOW confidence (0.30-0.45) - Clarification
+            elif best_score >= 0.30:
+                clarification = await gpt_service.generate_clarification_question(
+                    user_question=request.question,
+                    similar_faqs=faqs_with_scores[:3],
+                    language=language
+                )
+                
+                return AskResponse(
+                    action="clarify",
+                    question=request.question,
+                    message=clarification,
+                    confidence=best_score,
+                    suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
+                )
+            
+            # VERY LOW (<0.30) - Persona fallback
+            else:
+                response_text = await gpt_service.generate_persona_response(
+                    user_question=request.question,
+                    intent="unclear",
+                    language=language,
+                    context={"similar_faqs": [faq for faq, _ in faqs_with_scores[:3]]}
+                )
+                
+                return AskResponse(
+                    action="no_match",
+                    question=request.question,
+                    message=response_text,
+                    confidence=best_score
+                )
     
     except Exception as e:
-        logger.error(f"❌ Error processing question: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(f"❌ Error: {e}", exc_info=True)
+        
+        # КРИТИЧНО: НЕ показывать техническую ошибку!
+        if language == "kk":
+            fallback = "Қазір техникалық ақау бар 🔧\n\nКуратор қызметіне жазыңыз, олар көмектеседі!\n📞 10:00-20:00"
+        else:
+            fallback = "Сейчас техническая неполадка 🔧\n\nНапишите куратору, он поможет!\n📞 10:00-20:00"
+        
+        return AskResponse(
+            action="no_match",
+            question=request.question,
+            message=fallback,
+            confidence=0.0
+        )

@@ -10,116 +10,206 @@ logger = get_logger(__name__)
 
 class GPTService:
     def __init__(self):
-        http_client = httpx.Client()
-        self.client = OpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            http_client=http_client
+        self.client = OpenAI()
+        self.model = "gpt-4o-mini"
+    
+    async def generate_persona_response(
+        self,
+        user_question: str,
+        intent: str,
+        language: str,
+        context: Dict = None
+    ) -> str:
+        """
+        Генерация "живого" ответа от имени бота-куратора.
+        Используется для greeting, general, off_topic.
+        """
+        
+        system_prompt = self._get_persona_system_prompt(language)
+        
+        # Формируем контекст для промпта
+        context_text = ""
+        if context and context.get("similar_faqs"):
+            context_text = "\n\nПохожие темы в базе:\n"
+            for faq in context["similar_faqs"][:3]:
+                context_text += f"- {faq['question']}\n"
+        
+        user_prompt = f"""Пользователь написал: "{user_question}"
+Intent: {intent}
+{context_text}
+
+Ответь как дружелюбный AI-куратор. Будь полезным и предложи конкретные действия."""
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7,
+            max_tokens=300
         )
-        self.model = settings.AI_MODEL
+        
+        return response.choices[0].message.content.strip()
     
-    async def generate_clarification(
+    async def generate_clarification_question(
         self,
         user_question: str,
-        similar_faqs: List[Tuple[Dict[str, Any], float]],
+        similar_faqs: List[Tuple[Dict, float]],
         language: str
     ) -> str:
-        """Generate clarification question when confidence is medium"""
+        """Генерация уточняющего вопроса (УЛУЧШЕННАЯ ВЕРСИЯ)"""
         
-        faq_list = "\n".join([
-            f"- {faq['question']} (similarity: {score:.2f})"
-            for faq, score in similar_faqs[:3]
-        ])
+        faq_options = []
+        for i, (faq, score) in enumerate(similar_faqs[:3], 1):
+            faq_options.append(f"{i}. {faq['question']}")
         
-        system_prompt = self._get_system_prompt(language)
+        options_text = "\n".join(faq_options)
         
-        user_prompt = f"""User asked: "{user_question}"
+        system_prompt = self._get_clarification_system_prompt(language)
+        
+        user_prompt = f"""Пользователь спросил: "{user_question}"
 
-Similar FAQs found:
-{faq_list}
+Похожие вопросы:
+{options_text}
 
-Generate a short clarification question to help user choose the most relevant FAQ.
-Keep it concise and friendly. Use {language} language."""
+Сформулируй КОРОТКИЙ уточняющий вопрос (макс 2 предложения), чтобы помочь выбрать нужный вариант."""
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7,
+            max_tokens=150
+        )
         
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.7,
-                max_tokens=200
-            )
-            
-            return response.choices[0].message.content.strip()
+        clarification = response.choices[0].message.content.strip()
         
-        except Exception as e:
-            logger.error(f"Error generating clarification: {e}")
-            return self._get_fallback_clarification(language)
+        # Добавляем варианты внизу
+        if language == "kk":
+            return f"{clarification}\n\n{options_text}\n\n💬 Санын жазыңыз немесе нақтылаңыз"
+        else:
+            return f"{clarification}\n\n{options_text}\n\n💬 Напишите номер или уточните вопрос"
     
-    async def generate_fallback_response(
+    async def generate_answer_from_faqs(
         self,
         user_question: str,
+        matched_faqs: List[Tuple[Dict, float]],
         language: str
     ) -> str:
-        """Generate fallback response when no FAQ matches"""
+        """
+        Генерация ответа СТРОГО на основе найденных FAQ (для medium confidence).
+        НЕ придумывать информацию!
+        """
         
-        system_prompt = self._get_system_prompt(language)
+        # Контекст из топ-3 FAQ
+        context = ""
+        for i, (faq, score) in enumerate(matched_faqs[:3], 1):
+            context += f"\n[FAQ {i}]\nВопрос: {faq['question']}\nОтвет: {faq['answer_text']}\n"
         
-        user_prompt = f"""User asked: "{user_question}"
+        system_prompt = self._get_answer_from_context_prompt(language)
+        
+        user_prompt = f"""Вопрос пользователя: "{user_question}"
 
-No relevant FAQ found in our database.
+Доступный контекст из FAQ:
+{context}
 
-Provide a brief, helpful response that:
-1. Acknowledges the question
-2. Explains we don't have specific information about this
-3. Suggests contacting support for detailed help
-4. Keep it short and friendly
+Сформируй ответ СТРОГО на основе этого контекста. Если информации недостаточно - скажи об этом и предложи выбрать конкретный FAQ."""
 
-Use {language} language."""
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.5,
+            max_tokens=400
+        )
         
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.7,
-                max_tokens=300
-            )
-            
-            return response.choices[0].message.content.strip()
-        
-        except Exception as e:
-            logger.error(f"Error generating fallback: {e}")
-            return self._get_fallback_message(language)
+        return response.choices[0].message.content.strip()
     
-    def _get_system_prompt(self, language: str) -> str:
-        """Get system prompt based on language"""
-        if language == "kk":
-            return """You are a helpful investment assistant for Kazakh-speaking users.
-Your role is to help users find information about investments, brokers, and trading.
-You do NOT give financial advice or investment recommendations.
-You do NOT make up information.
-You only help users navigate existing FAQ or connect them with support."""
-        else:
-            return """You are a helpful investment assistant for Russian-speaking users.
-Your role is to help users find information about investments, brokers, and trading.
-You do NOT give financial advice or investment recommendations.
-You do NOT make up information.
-You only help users navigate existing FAQ or connect them with support."""
+    # ===== ПРОМПТЫ =====
     
-    def _get_fallback_clarification(self, language: str) -> str:
-        """Fallback clarification if GPT fails"""
+    def _get_persona_system_prompt(self, language: str) -> str:
         if language == "kk":
-            return "Кешіріңіз, сұрағыңыз түсініксіз болды. Нақтырақ жазып көріңізші?"
+            return """Сіз - инвестициялық AI-куратор, студенттерге көмектесесіз.
+
+Сіздің мінез-құлқыңыз:
+✅ Достық және қолдаушы
+✅ Нақты және пайдалы
+✅ Қысқа жауаптар (2-3 сөйлем)
+✅ Emoji қолданыңыз (бірақ көп емес)
+✅ МІНДЕТТІ: әрекет ұсыныңыз
+
+❌ НЕ ІСТЕУГЕ БОЛМАЙДЫ:
+- Қаржылық кеңес беру
+- Ақпарат ойлап шығару
+- Ұзын монолог
+- "Кешіріңіз, мен бот" деу
+
+Домен: инвестициялар, брокерлер, акциялар, облигациялар.
+
+Егер білмесеңіз - оны мойындаңыз және куратор қызметіне жіберіңіз."""
         else:
-            return "Извините, вопрос не совсем понятен. Можете уточнить?"
+            return """Вы - AI-куратор по инвестициям, помогаете студентам.
+
+Ваше поведение:
+✅ Дружелюбный и поддерживающий
+✅ Конкретный и полезный
+✅ Короткие ответы (2-3 предложения)
+✅ Используйте emoji (но умеренно)
+✅ ОБЯЗАТЕЛЬНО: предлагайте действие
+
+❌ НЕ ДЕЛАЙТЕ:
+- Давать финансовые советы
+- Придумывать информацию
+- Длинные монологи
+- Говорить "извините, я бот"
+
+Домен: инвестиции, брокеры, акции, облигации.
+
+Если не знаете - признайте это и направьте к куратору."""
     
-    def _get_fallback_message(self, language: str) -> str:
-        """Fallback message if GPT fails"""
+    def _get_clarification_system_prompt(self, language: str) -> str:
         if language == "kk":
-            return "Кешіріңіз, сұрағыңызға жауап таппадым. Қолдау қызметіне жазыңыз."
+            return """Сіз - уточняющий сұрақтар құрастырушысыз.
+
+Қағидалар:
+- ҚЫСҚА (макс 2 сөйлем)
+- Достық тон
+- Нақты варианттар ұсыныңыз
+- Emoji қолданыңыз
+
+Мысал: "Қайсысы сізге жақынырақ? 🤔" """
         else:
-            return "Извините, не нашёл ответа на ваш вопрос. Обратитесь в поддержку."
+            return """Вы - генератор уточняющих вопросов.
+
+Правила:
+- КОРОТКО (макс 2 предложения)
+- Дружелюбный тон
+- Предлагайте конкретные варианты
+- Используйте emoji
+
+Пример: "Какой из этих вопросов ближе? 🤔" """
+    
+    def _get_answer_from_context_prompt(self, language: str) -> str:
+        if language == "kk":
+            return """Сіз FAQ негізінде жауап жасаушысыз.
+
+МАҢЫЗДЫ:
+- ТІЛІ контекстегі ақпаратты ғана қолданыңыз
+- Ештеңе ойлап шығармаңыз
+- Егер жеткіліксіз болса - мойындаңыз
+- Қысқа және нақты
+- Мүмкін болса бейне сілтемесін қосыңыз"""
+        else:
+            return """Вы - генератор ответов на основе FAQ.
+
+ВАЖНО:
+- Используйте ТОЛЬКО информацию из контекста
+- Ничего не придумывайте
+- Если недостаточно - признайте это
+- Коротко и конкретно
+- Добавьте ссылку на видео если есть"""
