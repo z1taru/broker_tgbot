@@ -1,5 +1,6 @@
+# api/app/schemas/ask.py
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 
 class AskRequest(BaseModel):
@@ -9,10 +10,18 @@ class AskRequest(BaseModel):
 
 
 class AskResponse(BaseModel):
-    action: str
+    action: str  # "direct_answer" | "clarify" | "show_similar" | "no_match"
     question: str
+    
+    # Для прямого ответа
     answer_text: Optional[str] = None
     video_url: Optional[str] = None
     faq_id: Optional[int] = None
-    confidence: float
+    
+    # Для других сценариев
     message: Optional[str] = None
+    
+    # НОВОЕ: список предложений (для UI)
+    suggestions: Optional[List[str]] = None
+    
+    confidence: float
