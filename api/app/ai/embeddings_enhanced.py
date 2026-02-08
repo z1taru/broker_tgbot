@@ -7,39 +7,78 @@ from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-class EnhancedEmbeddingService:
+
+class EmbeddingService:
+    """Production embedding service with OpenAI text-embedding-3-small"""
+    
     def __init__(self):
         self.client = AsyncOpenAI()
         self.model = "text-embedding-3-small"
+        self.dimension = 1536
     
     @staticmethod
     def normalize_text(text: str) -> str:
-        """Нормализация текста для лучшего поиска"""
-        # Lowercase
+        """Normalize text for better search quality"""
         text = text.lower()
-        # Убрать лишние пробелы
         text = re.sub(r'\s+', ' ', text)
-        # Убрать пунктуацию (кроме важной)
         text = re.sub(r'[^\w\s\-]', '', text)
         return text.strip()
     
     @staticmethod
     def extract_keywords(text: str) -> List[str]:
-        """Извлечение ключевых слов"""
-        # Стоп-слова для казахского и русского
+        """Extract keywords (bilingual stopwords)"""
         stop_words = {
-            'kk': {'не', 'қалай', 'бол', 'деген', 'керек', 'және', 'үшін'},
-            'ru': {'как', 'что', 'если', 'это', 'для', 'или', 'и', 'в', 'на'}
+            'не', 'қалай', 'бол', 'деген', 'керек', 'және', 'үшін',
+            'как', 'что', 'если', 'это', 'для', 'или', 'и', 'в', 'на'
         }
         
-        normalized = EnhancedEmbeddingService.normalize_text(text)
+        normalized = EmbeddingService.normalize_text(text)
         words = normalized.split()
-        
-        # Убрать стоп-слова (для обоих языков)
-        all_stop_words = stop_words['kk'] | stop_words['ru']
-        keywords = [w for w in words if w not in all_stop_words and len(w) > 2]
+        keywords = [w for w in words if w not in stop_words and len(w) > 2]
         
         return keywords
+    
+    async def create_embedding(self, text: str) -> List[float]:
+        """
+        Create single embedding vector
+        
+        Args:
+            text: Input text
+            
+        Returns:
+            List of floats (1536 dimensions)
+        """
+        try:
+            response = await self.client.embeddings.create(
+                model=self.model,
+                input=text
+            )
+            return response.data[0].embedding
+        
+        except Exception as e:
+            logger.error(f"Embedding creation failed: {e}")
+            raise
+    
+    async def create_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """
+        Batch create embeddings (up to 2048 texts)
+        
+        Args:
+            texts: List of input texts
+            
+        Returns:
+            List of embedding vectors
+        """
+        try:
+            response = await self.client.embeddings.create(
+                model=self.model,
+                input=texts
+            )
+            return [item.embedding for item in response.data]
+        
+        except Exception as e:
+            logger.error(f"Batch embedding creation failed: {e}")
+            raise
     
     async def create_embedding_with_enrichment(
         self, 
@@ -47,7 +86,7 @@ class EnhancedEmbeddingService:
         synonyms: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Создание embedding с enrichment
+        Create embedding with metadata enrichment
         
         Returns:
             {
@@ -57,37 +96,32 @@ class EnhancedEmbeddingService:
                 'hash': str
             }
         """
-        # Обогащение текста синонимами
+        # Enrich with synonyms
         enriched_text = text
         if synonyms:
             enriched_text = f"{text}. {' '.join(synonyms)}"
         
-        # Создание embedding
-        response = await self.client.embeddings.create(
-            model=self.model,
-            input=enriched_text
-        )
+        # Create embedding
+        embedding = await self.create_embedding(enriched_text)
         
-        # Нормализация и извлечение keywords
+        # Extract metadata
         normalized = self.normalize_text(text)
         keywords = self.extract_keywords(text)
-        
-        # Хеш для кеширования
         text_hash = hashlib.md5(normalized.encode()).hexdigest()
         
         return {
-            'embedding': response.data[0].embedding,
+            'embedding': embedding,
             'normalized': normalized,
             'keywords': keywords,
             'hash': text_hash
         }
     
-    async def batch_create_embeddings(
+    async def batch_create_embeddings_with_enrichment(
         self, 
         texts: List[str],
         synonyms_map: Optional[Dict[str, List[str]]] = None
     ) -> List[Dict[str, Any]]:
-        """Batch обработка для efficiency"""
+        """Batch create with enrichment metadata"""
         results = []
         
         for i, text in enumerate(texts):
@@ -96,3 +130,7 @@ class EnhancedEmbeddingService:
             results.append(result)
         
         return results
+
+
+# Backward compatibility alias
+EnhancedEmbeddingService = EmbeddingService
