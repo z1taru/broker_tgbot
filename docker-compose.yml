@@ -105,6 +105,29 @@ services:
     networks:
       - faq_network
 
+  directus:
+    image: directus/directus:latest
+    container_name: faq_directus
+    ports:
+      - "8054:8055"
+    environment:
+      KEY: ${DIRECTUS_KEY}
+      SECRET: ${DIRECTUS_SECRET}
+      DB_CLIENT: "pg"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_DATABASE: ${POSTGRES_DB:-faq_db}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - faq_network
+
 volumes:
   postgres_data:
     driver: local
@@ -114,3 +137,10 @@ volumes:
 networks:
   faq_network:
     driver: bridge
+
+
+
+
+
+
+
