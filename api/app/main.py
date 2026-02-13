@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import faq, health, ask, ask_v2
+from app.api.routes import faq, health, ask 
 from app.config import settings
 from app.core.database import check_db_connection, close_db_connection
 from app.core.exceptions import AppException
@@ -56,7 +56,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.CORS_ORIGINS.split(",") if isinstance(settings.CORS_ORIGINS, str) else settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -119,10 +119,7 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
 app.include_router(health.router, tags=["Health"])
 app.include_router(faq.router, prefix="/faq", tags=["FAQ"])
 app.include_router(ask.router, prefix="/api", tags=["AI"])
-app.include_router(ask_v2.router, prefix="/api", tags=["AI-v2"])
-
-
-
+# ✅ ИСПРАВЛЕНО: убрал app.include_router(ask_v2.router)
 
 
 @app.get("/", include_in_schema=False)

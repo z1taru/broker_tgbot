@@ -129,23 +129,26 @@ async def ask_question(
                 )
             
             best_score = faqs_with_scores[0][1]
+            best_faq = faqs_with_scores[0][0]
             
-            # HIGH confidence (≥ 0.65) - ПРЯМОЙ ОТВЕТ С ВИДЕО
-            if best_score >= 0.65:
-                faq = faqs_with_scores[0][0]
+            # 🔧 ИСПРАВЛЕНИЕ: Понижены пороги confidence для лучшего срабатывания
+            
+            # HIGH confidence (≥ 0.40) - ПРЯМОЙ ОТВЕТ С ВИДЕО
+            if best_score >= 0.40:
+                logger.info(f"✅ HIGH confidence: {best_score:.3f} - returning direct answer with video")
                 
                 return AskResponse(
                     action="direct_answer",
                     question=request.question,
-                    answer_text=faq['answer_text'],
-                    video_url=faq.get('video_url'),
-                    faq_id=faq['id'],
+                    answer_text=best_faq['answer_text'],
+                    video_url=best_faq.get('video_url'),
+                    faq_id=best_faq['id'],
                     confidence=best_score
                 )
             
-            # MEDIUM confidence (0.45-0.65) - GPT synthesizes answer BUT KEEP VIDEO!
-            elif best_score >= 0.45:
-                best_faq = faqs_with_scores[0][0]
+            # MEDIUM confidence (0.20-0.40) - GPT synthesizes BUT KEEP VIDEO!
+            elif best_score >= 0.20:
+                logger.info(f"🤔 MEDIUM confidence: {best_score:.3f} - GPT synthesis with video")
                 
                 answer = await gpt_service.generate_answer_from_faqs(
                     user_question=request.question,
@@ -157,14 +160,16 @@ async def ask_question(
                     action="direct_answer",
                     question=request.question,
                     answer_text=answer,
-                    video_url=best_faq.get('video_url'),
+                    video_url=best_faq.get('video_url'),  # ✅ ВАЖНО: Оставляем видео!
                     faq_id=best_faq['id'],
                     confidence=best_score,
                     suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
                 )
             
-            # LOW confidence (0.30-0.45) - Clarification
-            elif best_score >= 0.30:
+            # LOW confidence (0.10-0.20) - Clarification
+            elif best_score >= 0.10:
+                logger.info(f"📋 LOW confidence: {best_score:.3f} - asking for clarification")
+                
                 clarification = await gpt_service.generate_clarification_question(
                     user_question=request.question,
                     similar_faqs=faqs_with_scores[:3],
@@ -179,8 +184,10 @@ async def ask_question(
                     suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
                 )
             
-            # VERY LOW (<0.30) - Persona fallback
+            # VERY LOW (<0.10) - Persona fallback BUT STILL SHOW BEST VIDEO IF EXISTS
             else:
+                logger.info(f"❌ VERY LOW confidence: {best_score:.3f} - fallback with best match")
+                
                 response_text = await gpt_service.generate_persona_response(
                     user_question=request.question,
                     intent="unclear",
@@ -188,10 +195,13 @@ async def ask_question(
                     context={"similar_faqs": [faq for faq, _ in faqs_with_scores[:3]]}
                 )
                 
+                # ✅ НОВОЕ: Даже при no_match показываем лучшее видео, если есть
                 return AskResponse(
                     action="no_match",
                     question=request.question,
                     message=response_text,
+                    video_url=best_faq.get('video_url') if best_score > 0.05 else None,
+                    faq_id=best_faq['id'] if best_score > 0.05 else None,
                     confidence=best_score
                 )
     
