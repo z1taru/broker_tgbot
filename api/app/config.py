@@ -14,7 +14,8 @@ class Settings(BaseSettings):
     )
     
     DATABASE_URL: PostgresDsn
-    VIDEO_BASE_URL: str = "http://37.151.92.154:8000/videos"
+    DIRECTUS_URL: str = "http://directus:8055"  # Directus base URL for video assets
+    DIRECTUS_TOKEN: str = ""  # Optional access token for Directus assets
     ENVIRONMENT: Literal["development", "production", "testing"] = "development"
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     CORS_ORIGINS: str = "*"

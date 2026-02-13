@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     
     BOT_TOKEN: str
     API_BASE_URL: str = "http://api:8000"
-    VIDEO_BASE_URL: str = "http://37.151.92.154:8000/videos"
     DATABASE_URL: str = ""
     
     WEBHOOK_ENABLED: bool = False

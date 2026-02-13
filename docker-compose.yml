@@ -52,12 +52,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-faq_db}
       REDIS_URL: redis://redis:6379/0  # НОВОЕ
-      VIDEO_BASE_URL: ${VIDEO_BASE_URL:-http://localhost:8000}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
-    volumes:
-      - ./videos:/app/videos:ro
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
@@ -94,8 +91,6 @@ services:
       DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-kk}
       MAX_VIDEO_SIZE_MB: ${MAX_VIDEO_SIZE_MB:-50}
       VIDEO_RETRY_ATTEMPTS: ${VIDEO_RETRY_ATTEMPTS:-3}
-    volumes:
-      - ./videos:/app/videos:ro 
     depends_on:
       postgres:
         condition: service_healthy

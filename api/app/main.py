@@ -122,11 +122,7 @@ app.include_router(ask.router, prefix="/api", tags=["AI"])
 app.include_router(ask_v2.router, prefix="/api", tags=["AI-v2"])
 
 
-try:
-    app.mount("/videos", StaticFiles(directory="/app/videos"), name="videos")
-    logger.info("✅ Static files (videos) mounted at /videos")
-except RuntimeError:
-    logger.warning("⚠️ Videos directory not found, skipping static files mount")
+
 
 
 @app.get("/", include_in_schema=False)

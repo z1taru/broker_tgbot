@@ -1,4 +1,4 @@
-# api/app/ai/search_enhanced.py
+# api/app/ai/search_enhanced.py - SIMPLIFIED VERSION
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy import text, select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,33 @@ logger = get_logger(__name__)
 class EnhancedSearchService:
     
     @staticmethod
+    def _build_video_url(video_file_id: Optional[str]) -> Optional[str]:
+        """
+        Build Directus video URL from file_id
+        
+        Args:
+            video_file_id: Directus file UUID
+            
+        Returns:
+            Full URL to video asset or None
+        """
+        if not video_file_id:
+            return None
+        
+        # Strip whitespace and check again
+        video_file_id = str(video_file_id).strip()
+        if not video_file_id or video_file_id == 'None':
+            return None
+        
+        base_url = settings.DIRECTUS_URL.rstrip('/')
+        
+        # If token is configured, append it
+        if settings.DIRECTUS_TOKEN:
+            return f"{base_url}/assets/{video_file_id}?access_token={settings.DIRECTUS_TOKEN}"
+        
+        return f"{base_url}/assets/{video_file_id}"
+    
+    @staticmethod
     async def find_similar_faqs(
         session: AsyncSession,
         query_embedding: List[float],
@@ -18,23 +45,24 @@ class EnhancedSearchService:
         limit: int = 10
     ):
         """
-        Find similar FAQs using vector search with new schema
+        Find similar FAQs using vector search
+        SIMPLIFIED: Assumes faq_content.video already contains UUID
         """
         embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
         
+        # ✅ УПРОЩЕННАЯ ВЕРСИЯ: video уже содержит UUID
         sql = text("""
             SELECT 
                 faq_v2.id,
                 faq_content.question,
                 faq_content.answer_text,
-                directus_files.id as video_file_id,
+                faq_content.video as video_file_id,
                 faq_v2.category,
                 faq_content.language,
                 faq_v2.created_at,
                 1 - (faq_content.question_embedding <=> CAST(:embedding AS vector)) as similarity
             FROM faq_content
             INNER JOIN faq_v2 ON faq_content.faq_id = faq_v2.id
-            LEFT JOIN directus_files ON faq_content.video = directus_files.id
             WHERE faq_content.language = :language
               AND faq_v2.is_active = TRUE
               AND faq_content.question_embedding IS NOT NULL
@@ -62,15 +90,15 @@ class EnhancedSearchService:
     ) -> List[Tuple]:
         """
         Keyword-based fallback search
+        SIMPLIFIED: Assumes faq_content.video already contains UUID
         """
-        keywords = query_text.lower().split()
-        
+        # ✅ УПРОЩЕННАЯ ВЕРСИЯ
         sql = text("""
             SELECT 
                 faq_v2.id,
                 faq_content.question,
                 faq_content.answer_text,
-                directus_files.id as video_file_id,
+                faq_content.video as video_file_id,
                 faq_v2.category,
                 faq_content.language,
                 faq_v2.created_at,
@@ -80,7 +108,6 @@ class EnhancedSearchService:
                 ) as relevance
             FROM faq_content
             INNER JOIN faq_v2 ON faq_content.faq_id = faq_v2.id
-            LEFT JOIN directus_files ON faq_content.video = directus_files.id
             WHERE faq_content.language = :language
               AND faq_v2.is_active = TRUE
               AND (
@@ -198,9 +225,15 @@ class EnhancedSearchService:
         
         candidates = []
         for row in rows:
-            video_url = None
-            if row[3]:  # video_file_id
-                video_url = f"{settings.VIDEO_BASE_URL}/assets/{row[3]}"
+            video_file_id = row[3]  # UUID from faq_content.video
+            
+            # ✅ ЛОГИРОВАНИЕ для отладки
+            if video_file_id:
+                logger.info(f"FAQ {row[0]}: Found video_file_id = {video_file_id}")
+            else:
+                logger.debug(f"FAQ {row[0]}: No video")
+            
+            video_url = EnhancedSearchService._build_video_url(video_file_id)
             
             faq = {
                 'id': row[0],
@@ -226,9 +259,8 @@ class EnhancedSearchService:
                 if any(c[0]['id'] == row[0] for c in candidates):
                     continue
                 
-                video_url = None
-                if row[3]:
-                    video_url = f"{settings.VIDEO_BASE_URL}/assets/{row[3]}"
+                video_file_id = row[3]
+                video_url = EnhancedSearchService._build_video_url(video_file_id)
                 
                 faq = {
                     'id': row[0],
@@ -239,7 +271,7 @@ class EnhancedSearchService:
                     'language': row[5],
                     'created_at': row[6]
                 }
-                score = float(row[7]) * 0.8  # Lower weight for keyword
+                score = float(row[7]) * 0.8
                 candidates.append((faq, score))
         
         # Sort by score and limit
