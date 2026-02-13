@@ -10,6 +10,8 @@ import os
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+
+
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:aldik07bak@localhost:5432/faq_db")
 DIRECTUS_URL = os.getenv("DIRECTUS_URL", "http://localhost:8054")
 DIRECTUS_TOKEN = os.getenv("DIRECTUS_TOKEN", "")
