@@ -1,3 +1,4 @@
+# bot/app/handlers/faq.py
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, BufferedInputFile
 import aiohttp
@@ -46,7 +47,7 @@ async def show_category_questions(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("faq:"))
 async def show_faq_answer(callback: CallbackQuery):
     """
-    Показать ответ на выбранный вопрос
+    Показать ответ на выбранный вопрос (новая схема БД)
     """
     faq_id = callback.data.split(":", 1)[1]
     telegram_id = str(callback.from_user.id)
@@ -75,19 +76,20 @@ async def show_faq_answer(callback: CallbackQuery):
             f"💡 {faq['answer_text']}"
         )
         
-        if faq.get("video_url"):
-            video_url = faq["video_url"]
-            video_full_url = f"{settings.API_BASE_URL}/videos/{video_url}"
-            
+        video_url = faq.get("video_url")  # Полный URL из API
+        
+        if video_url:
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(video_full_url) as video_resp:
+                    async with session.get(video_url) as video_resp:
                         if video_resp.status == 200:
                             video_data = await video_resp.read()
                             
+                            filename = video_url.split('/')[-1]
+                            
                             video_file = BufferedInputFile(
                                 video_data, 
-                                filename=video_url
+                                filename=filename
                             )
                             
                             await callback.message.answer_video(

@@ -178,68 +178,49 @@ async def handle_text_message(message: Message, state: FSMContext):
 
 async def send_faq_answer(message: Message, response: dict, language: str = "ru"):
     """
-    Отправка ответа с видео (КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ)
+    Отправка ответа с видео (новая схема БД)
     """
     answer_text = response.get("answer_text", "")
-    video_url = response.get("video_url")
+    video_url = response.get("video_url")  # Уже полный URL из API
     
     logger.info(f"📤 Sending answer | video_url: {video_url} | language: {language}")
     
     if video_url:
         video_sent = False
         
-        # СПОСОБ 1: Локальный файл (быстрее и надёжнее)
-        local_video_path = Path(f"/app/videos/{video_url}")
-        if local_video_path.exists():
-            logger.info(f"📁 Found local video file: {local_video_path}")
-            try:
-                video_file = FSInputFile(local_video_path)
-                await message.answer_video(
-                    video=video_file,
-                    caption=f"💡 {answer_text}",
-                    supports_streaming=True
-                )
-                logger.info("✅ Video sent successfully from local file")
-                video_sent = True
-            except Exception as e:
-                logger.error(f"❌ Error sending local video: {e}")
-        else:
-            logger.warning(f"⚠️ Local video not found: {local_video_path}")
+        # Скачивание и отправка видео
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(video_url, timeout=aiohttp.ClientTimeout(total=30)) as video_resp:
+                    if video_resp.status == 200:
+                        video_data = await video_resp.read()
+                        logger.info(f"✅ Video downloaded: {len(video_data)} bytes")
+                        
+                        # Извлекаем имя файла из URL
+                        filename = video_url.split('/')[-1]
+                        
+                        video_file = BufferedInputFile(
+                            video_data,
+                            filename=filename
+                        )
+                        
+                        await message.answer_video(
+                            video=video_file,
+                            caption=f"💡 {answer_text}",
+                            supports_streaming=True
+                        )
+                        logger.info("✅ Video sent successfully")
+                        video_sent = True
+                    else:
+                        logger.error(f"❌ Video download failed with status: {video_resp.status}")
+        except asyncio.TimeoutError:
+            logger.error("❌ Video download timeout")
+        except Exception as e:
+            logger.error(f"❌ Error downloading video: {e}")
         
-        # СПОСОБ 2: HTTP скачивание (если локальный не сработал)
+        # Fallback - только текст
         if not video_sent:
-            video_full_url = f"{settings.API_BASE_URL}/videos/{video_url}"
-            logger.info(f"🎥 Attempting HTTP download from: {video_full_url}")
-            
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(video_full_url, timeout=aiohttp.ClientTimeout(total=30)) as video_resp:
-                        if video_resp.status == 200:
-                            video_data = await video_resp.read()
-                            logger.info(f"✅ Video downloaded via HTTP: {len(video_data)} bytes")
-                            
-                            video_file = BufferedInputFile(
-                                video_data,
-                                filename=video_url
-                            )
-                            
-                            await message.answer_video(
-                                video=video_file,
-                                caption=f"💡 {answer_text}",
-                                supports_streaming=True
-                            )
-                            logger.info("✅ Video sent successfully via HTTP")
-                            video_sent = True
-                        else:
-                            logger.error(f"❌ HTTP download failed with status: {video_resp.status}")
-            except asyncio.TimeoutError:
-                logger.error("❌ Video download timeout (HTTP)")
-            except Exception as e:
-                logger.error(f"❌ Error downloading via HTTP: {e}")
-        
-        # СПОСОБ 3: Fallback - только текст
-        if not video_sent:
-            logger.error(f"❌ All video sending methods failed for: {video_url}")
+            logger.error(f"❌ Video sending failed for: {video_url}")
             if language == "kk":
                 await message.answer(f"💡 {answer_text}\n\n⚠️ Видео уақытша қолжетімсіз. Куратор қызметіне хабарласыңыз.")
             else:

@@ -100,26 +100,13 @@ async def ask_question(
             query_embedding = await embedding_service.create_embedding(request.question)
             
             search_service = EnhancedSearchService()
-            rows = await search_service.find_similar_faqs(
+            faqs_with_scores = await search_service.hybrid_search(
                 session=session,
                 query_embedding=query_embedding,
+                query_text=request.question,
                 language=language,
                 limit=10
             )
-            
-            faqs_with_scores = [
-                (
-                    {
-                        'id': row[0],
-                        'question': row[1],
-                        'answer_text': row[2],
-                        'video_url': row[3],
-                        'category': row[4]
-                    },
-                    float(row[7])
-                )
-                for row in rows
-            ]
             
             if not faqs_with_scores:
                 # NO MATCH - persona fallback
@@ -147,8 +134,6 @@ async def ask_question(
             if best_score >= 0.65:
                 faq = faqs_with_scores[0][0]
                 
-                # Возвращаем чистый ответ БЕЗ добавления ссылки на видео
-                # Видео будет отправлено ботом отдельным сообщением через video_url поле
                 return AskResponse(
                     action="direct_answer",
                     question=request.question,
@@ -158,7 +143,7 @@ async def ask_question(
                     confidence=best_score
                 )
             
-            # MEDIUM confidence (0.45-0.65) - GPT synthesizes answer BUT KEEP VIDEO! 🔥
+            # MEDIUM confidence (0.45-0.65) - GPT synthesizes answer BUT KEEP VIDEO!
             elif best_score >= 0.45:
                 best_faq = faqs_with_scores[0][0]
                 
@@ -172,7 +157,7 @@ async def ask_question(
                     action="direct_answer",
                     question=request.question,
                     answer_text=answer,
-                    video_url=best_faq.get('video_url'),  # 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ!
+                    video_url=best_faq.get('video_url'),
                     faq_id=best_faq['id'],
                     confidence=best_score,
                     suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]

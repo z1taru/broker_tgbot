@@ -1,9 +1,9 @@
 # api/app/ai/search_enhanced.py
 from typing import List, Dict, Any, Optional, Tuple
-from sqlalchemy import text
+from sqlalchemy import text, select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging_config import get_logger
-import json
+from app.config import settings
 
 logger = get_logger(__name__)
 
@@ -18,24 +18,27 @@ class EnhancedSearchService:
         limit: int = 10
     ):
         """
-        Find similar FAQs using vector search
+        Find similar FAQs using vector search with new schema
         """
         embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
         
         sql = text("""
             SELECT 
-                id,
-                question,
-                answer_text,
-                video_url,
-                category,
-                language,
-                created_at,
-                1 - (embedding <=> CAST(:embedding AS vector)) as similarity
-            FROM faq
-            WHERE language = :language
-              AND embedding IS NOT NULL
-            ORDER BY embedding <=> CAST(:embedding AS vector)
+                faq_v2.id,
+                faq_content.question,
+                faq_content.answer_text,
+                directus_files.id as video_file_id,
+                faq_v2.category,
+                faq_content.language,
+                faq_v2.created_at,
+                1 - (faq_content.question_embedding <=> CAST(:embedding AS vector)) as similarity
+            FROM faq_content
+            INNER JOIN faq_v2 ON faq_content.faq_id = faq_v2.id
+            LEFT JOIN directus_files ON faq_content.video = directus_files.id
+            WHERE faq_content.language = :language
+              AND faq_v2.is_active = TRUE
+              AND faq_content.question_embedding IS NOT NULL
+            ORDER BY faq_content.question_embedding <=> CAST(:embedding AS vector)
             LIMIT :limit
         """)
         
@@ -43,6 +46,58 @@ class EnhancedSearchService:
             sql,
             {
                 "embedding": embedding_str,
+                "language": language,
+                "limit": limit
+            }
+        )
+        
+        return result.fetchall()
+    
+    @staticmethod
+    async def keyword_search(
+        session: AsyncSession,
+        query_text: str,
+        language: str,
+        limit: int = 10
+    ) -> List[Tuple]:
+        """
+        Keyword-based fallback search
+        """
+        keywords = query_text.lower().split()
+        
+        sql = text("""
+            SELECT 
+                faq_v2.id,
+                faq_content.question,
+                faq_content.answer_text,
+                directus_files.id as video_file_id,
+                faq_v2.category,
+                faq_content.language,
+                faq_v2.created_at,
+                ts_rank(
+                    to_tsvector('simple', faq_content.question || ' ' || faq_content.answer_text),
+                    plainto_tsquery('simple', :query)
+                ) as relevance
+            FROM faq_content
+            INNER JOIN faq_v2 ON faq_content.faq_id = faq_v2.id
+            LEFT JOIN directus_files ON faq_content.video = directus_files.id
+            WHERE faq_content.language = :language
+              AND faq_v2.is_active = TRUE
+              AND (
+                  faq_content.question ILIKE :pattern
+                  OR faq_content.answer_text ILIKE :pattern
+              )
+            ORDER BY relevance DESC
+            LIMIT :limit
+        """)
+        
+        pattern = f"%{query_text}%"
+        
+        result = await session.execute(
+            sql,
+            {
+                "query": query_text,
+                "pattern": pattern,
                 "language": language,
                 "limit": limit
             }
@@ -73,12 +128,57 @@ class EnhancedSearchService:
     @staticmethod
     async def check_cache(session: AsyncSession, query_hash: str) -> Optional[List[Dict]]:
         """Check cache"""
-        return None  # Disabled for now
+        try:
+            sql = text("""
+                UPDATE search_cache 
+                SET hit_count = hit_count + 1, last_used_at = NOW()
+                WHERE query_hash = :hash
+                RETURNING faq_results
+            """)
+            
+            result = await session.execute(sql, {"hash": query_hash})
+            row = result.fetchone()
+            
+            if row:
+                return row[0]
+            return None
+        except Exception as e:
+            logger.warning(f"Cache check failed: {e}")
+            return None
     
     @staticmethod
-    async def save_to_cache(session: AsyncSession, query_hash: str, query_normalized: str, language: str, results: List[Dict]):
+    async def save_to_cache(
+        session: AsyncSession,
+        query_hash: str,
+        query_normalized: str,
+        language: str,
+        results: List[Dict]
+    ):
         """Save cache"""
-        pass  # Disabled for now
+        try:
+            sql = text("""
+                INSERT INTO search_cache (query_hash, query_normalized, language, faq_results)
+                VALUES (:hash, :normalized, :language, :results::jsonb)
+                ON CONFLICT (query_hash) 
+                DO UPDATE SET 
+                    hit_count = search_cache.hit_count + 1,
+                    last_used_at = NOW()
+            """)
+            
+            import json
+            results_json = json.dumps(results)
+            
+            await session.execute(
+                sql,
+                {
+                    "hash": query_hash,
+                    "normalized": query_normalized,
+                    "language": language,
+                    "results": results_json
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Cache save failed: {e}")
     
     @staticmethod
     async def hybrid_search(
@@ -88,19 +188,25 @@ class EnhancedSearchService:
         language: str,
         limit: int = 10
     ) -> List[Tuple[Dict[str, Any], float]]:
-        """Hybrid search - fallback to simple vector search"""
-        # For now, just use vector search
+        """
+        Hybrid search: vector + keyword fallback
+        """
+        # Primary: Vector search
         rows = await EnhancedSearchService.find_similar_faqs(
             session, query_embedding, language, limit
         )
         
         candidates = []
         for row in rows:
+            video_url = None
+            if row[3]:  # video_file_id
+                video_url = f"{settings.VIDEO_BASE_URL}/assets/{row[3]}"
+            
             faq = {
                 'id': row[0],
                 'question': row[1],
                 'answer_text': row[2],
-                'video_url': row[3],
+                'video_url': video_url,
                 'category': row[4],
                 'language': row[5],
                 'created_at': row[6]
@@ -108,7 +214,37 @@ class EnhancedSearchService:
             score = float(row[7])
             candidates.append((faq, score))
         
-        return candidates
+        # Fallback: Keyword search if vector results are poor
+        if not candidates or (candidates and candidates[0][1] < 0.5):
+            logger.info("Vector search weak, trying keyword fallback")
+            keyword_rows = await EnhancedSearchService.keyword_search(
+                session, query_text, language, limit
+            )
+            
+            for row in keyword_rows:
+                # Skip if already in vector results
+                if any(c[0]['id'] == row[0] for c in candidates):
+                    continue
+                
+                video_url = None
+                if row[3]:
+                    video_url = f"{settings.VIDEO_BASE_URL}/assets/{row[3]}"
+                
+                faq = {
+                    'id': row[0],
+                    'question': row[1],
+                    'answer_text': row[2],
+                    'video_url': video_url,
+                    'category': row[4],
+                    'language': row[5],
+                    'created_at': row[6]
+                }
+                score = float(row[7]) * 0.8  # Lower weight for keyword
+                candidates.append((faq, score))
+        
+        # Sort by score and limit
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        return candidates[:limit]
     
     @staticmethod
     async def rerank_with_gpt(
