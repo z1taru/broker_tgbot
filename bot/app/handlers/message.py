@@ -178,7 +178,7 @@ async def handle_text_message(message: Message, state: FSMContext):
 
 async def send_faq_answer(message: Message, response: dict, language: str = "ru"):
     """
-    Отправка ответа с видео (новая схема БД)
+    Отправка ответа с видео (УЛУЧШЕННАЯ ВЕРСИЯ с детальным логированием)
     """
     answer_text = response.get("answer_text", "")
     video_url = response.get("video_url")  # Уже полный URL из API
@@ -190,37 +190,67 @@ async def send_faq_answer(message: Message, response: dict, language: str = "ru"
         
         # Скачивание и отправка видео
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(video_url, timeout=aiohttp.ClientTimeout(total=30)) as video_resp:
+            # Увеличенный timeout и добавлены headers
+            timeout = aiohttp.ClientTimeout(total=120, connect=30)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (compatible; TelegramBot/1.0)',
+                'Accept': '*/*'
+            }
+            
+            async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+                logger.info(f"🔄 Downloading video from: {video_url}")
+                
+                async with session.get(video_url) as video_resp:
+                    logger.info(f"📡 Video response status: {video_resp.status}")
+                    logger.info(f"📡 Video response headers: {dict(video_resp.headers)}")
+                    
                     if video_resp.status == 200:
                         video_data = await video_resp.read()
-                        logger.info(f"✅ Video downloaded: {len(video_data)} bytes")
+                        video_size_mb = len(video_data) / (1024 * 1024)
+                        logger.info(f"✅ Video downloaded: {video_size_mb:.2f} MB")
                         
-                        # Извлекаем имя файла из URL
-                        filename = video_url.split('/')[-1]
+                        # Проверка размера (Telegram лимит ~50MB)
+                        if video_size_mb > 50:
+                            logger.error(f"❌ Video too large: {video_size_mb:.2f} MB")
+                            raise ValueError(f"Video size {video_size_mb:.2f} MB exceeds Telegram limit")
+                        
+                        # Извлекаем имя файла из URL (без query params)
+                        filename = video_url.split('/')[-1].split('?')[0]
+                        if not filename.endswith(('.mp4', '.mov', '.avi')):
+                            filename = f"{filename}.mp4"
+                        
+                        logger.info(f"📦 Preparing video file: {filename}")
                         
                         video_file = BufferedInputFile(
                             video_data,
                             filename=filename
                         )
                         
+                        # Отправка видео с caption
+                        logger.info("📤 Sending video to Telegram...")
                         await message.answer_video(
                             video=video_file,
-                            caption=f"💡 {answer_text}",
+                            caption=f"💡 {answer_text}"[:1024],  # Telegram caption limit
                             supports_streaming=True
                         )
                         logger.info("✅ Video sent successfully")
                         video_sent = True
                     else:
-                        logger.error(f"❌ Video download failed with status: {video_resp.status}")
+                        error_text = await video_resp.text()
+                        logger.error(f"❌ Video download failed with status {video_resp.status}: {error_text[:200]}")
+                        
         except asyncio.TimeoutError:
-            logger.error("❌ Video download timeout")
+            logger.error(f"❌ Video download timeout after 120s: {video_url}")
+        except aiohttp.ClientError as e:
+            logger.error(f"❌ HTTP client error downloading video: {e}")
+        except ValueError as e:
+            logger.error(f"❌ Video validation error: {e}")
         except Exception as e:
-            logger.error(f"❌ Error downloading video: {e}")
+            logger.error(f"❌ Unexpected error downloading/sending video: {type(e).__name__}: {e}", exc_info=True)
         
         # Fallback - только текст
         if not video_sent:
-            logger.error(f"❌ Video sending failed for: {video_url}")
+            logger.warning(f"⚠️ Sending text-only fallback for failed video: {video_url}")
             if language == "kk":
                 await message.answer(f"💡 {answer_text}\n\n⚠️ Видео уақытша қолжетімсіз. Куратор қызметіне хабарласыңыз.")
             else:
