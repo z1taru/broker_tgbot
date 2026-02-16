@@ -29,7 +29,7 @@ class EnhancedSearchService:
         if not video_file_id or video_file_id == 'None':
             return None
         
-        base_url = settings.DIRECTUS_URL.rstrip('/')
+        base_url = settings.DIRECTUS_PUBLIC_URL.rstrip('/')
         
         # If token is configured, append it
         if settings.DIRECTUS_TOKEN:

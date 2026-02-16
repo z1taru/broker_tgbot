@@ -109,7 +109,7 @@ services:
       KEY: ${DIRECTUS_KEY}
       SECRET: ${DIRECTUS_SECRET}
       DB_CLIENT: "pg"
-      DB_HOST: "postgres"
+      DB_HOST: "faq_postgres"
       DB_PORT: "5432"
       DB_DATABASE: ${POSTGRES_DB:-faq_db}
       DB_USER: ${POSTGRES_USER:-postgres}
