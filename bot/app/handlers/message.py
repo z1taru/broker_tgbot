@@ -249,7 +249,7 @@ async def send_faq_answer(message: Message, response: dict, language: str = "ru"
         except asyncio.TimeoutError:
             logger.error(f"❌ Video download timeout after {settings.VIDEO_DOWNLOAD_TIMEOUT}s: {video_url}")
         except aiohttp.ClientConnectorError as e:
-            logger.error(f"❌ Connection error: {e}. Check DIRECTUS_URL={settings.DIRECTUS_URL} in .env")
+            logger.error(f"❌ Connection error: {e}. Check DIRECTUS_PUBLIC_URL={settings.DIRECTUS_PUBLIC_URL} in .env")
         except aiohttp.ClientError as e:
             logger.error(f"❌ HTTP client error downloading video: {e}")
         except ValueError as e:

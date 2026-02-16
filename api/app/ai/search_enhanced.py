@@ -30,8 +30,8 @@ class EnhancedSearchService:
             return None
         
         # ✅ FIX: Public access, no token needed
-        base_url = settings.DIRECTUS_URL.rstrip('/')
-        return f"{base_url}/uploads/{video_file_id}"
+        base_url = settings.DIRECTUS_PUBLIC_URL.rstrip('/')
+        return f"{base_url}/assets/{video_file_id}"
     
     @staticmethod
     async def find_similar_faqs(
