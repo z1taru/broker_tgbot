@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init_db:/docker-entrypoint-initdb.d:ro
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:5432:5432"  # ✅ Только локальный доступ
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-faq_db}"]
       interval: 10s
@@ -24,12 +24,11 @@ services:
     networks:
       - faq_network
 
-  # ДОБАВИТЬ REDIS
   redis:
     image: redis:7-alpine
     container_name: faq_redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"  # ✅ Только локальный доступ
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
@@ -51,26 +50,34 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-faq_db}
-      REDIS_URL: redis://redis:6379/0  # НОВОЕ
-      ENVIRONMENT: ${ENVIRONMENT:-development}
+      REDIS_URL: redis://redis:6379/0
+      
+      # Directus configuration
+      DIRECTUS_URL: http://directus:8055  # ⚠️ Internal
+      DIRECTUS_PUBLIC_URL: ${DIRECTUS_PUBLIC_URL:-https://admin.brokerbot.kz}
+      DIRECTUS_TOKEN: ${DIRECTUS_TOKEN}
+      
+      ENVIRONMENT: ${ENVIRONMENT:-production}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      CORS_ORIGINS: ${CORS_ORIGINS}
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "127.0.0.1:8000:8000"  # ✅ Только через Nginx
     depends_on:
       postgres:
         condition: service_healthy
-      redis:  # НОВОЕ
+      redis:
         condition: service_healthy
+      directus:
+        condition: service_started
     restart: unless-stopped
     networks:
       - faq_network
     healthcheck:
-      test: ["CMD", "true"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
 
   bot:
     build:
@@ -82,20 +89,23 @@ services:
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-faq_db}
-      API_BASE_URL: ${API_BASE_URL:-http://api:8000}
-      API_TIMEOUT: ${API_TIMEOUT:-30}
-      WEBHOOK_ENABLED: ${WEBHOOK_ENABLED:-false}
-      WEBHOOK_URL: ${WEBHOOK_URL:-}
-      WEBHOOK_PATH: ${WEBHOOK_PATH:-/webhook}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-kk}
+      API_BASE_URL: http://api:8000  # ⚠️ Internal
+      
+      # Directus configuration
+      DIRECTUS_URL: http://directus:8055  # ⚠️ Internal
+      DIRECTUS_TOKEN: ${DIRECTUS_TOKEN}
+      
       MAX_VIDEO_SIZE_MB: ${MAX_VIDEO_SIZE_MB:-50}
-      VIDEO_RETRY_ATTEMPTS: ${VIDEO_RETRY_ATTEMPTS:-3}
+      VIDEO_DOWNLOAD_TIMEOUT: ${VIDEO_DOWNLOAD_TIMEOUT:-120}
+      
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       postgres:
         condition: service_healthy
       api:
         condition: service_healthy
+      directus:
+        condition: service_started
     restart: unless-stopped
     networks:
       - faq_network
@@ -104,7 +114,7 @@ services:
     image: directus/directus:latest
     container_name: faq_directus
     ports:
-      - "8054:8055"
+      - "127.0.0.1:8055:8055"  # ✅ Только через Nginx
     environment:
       KEY: ${DIRECTUS_KEY}
       SECRET: ${DIRECTUS_SECRET}
@@ -116,6 +126,20 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL}
       ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD}
+      
+      # ✅ Production settings
+      PUBLIC_URL: ${DIRECTUS_PUBLIC_URL:-https://admin.brokerbot.kz}
+      ASSETS_TRANSFORM_MAX_CONCURRENT: "5"
+      CORS_ENABLED: "true"
+      CORS_ORIGIN: "true"
+      
+      # Rate limiting
+      RATE_LIMITER_ENABLED: "true"
+      RATE_LIMITER_POINTS: "50"
+      RATE_LIMITER_DURATION: "1"
+      
+    volumes:
+      - directus_uploads:/directus/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,16 +150,11 @@ services:
 volumes:
   postgres_data:
     driver: local
-  redis_data:  # НОВОЕ
+  redis_data:
+    driver: local
+  directus_uploads:
     driver: local
 
 networks:
   faq_network:
     driver: bridge
-
-
-
-
-
-
-

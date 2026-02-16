@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     API_BASE_URL: str = "http://api:8000"
     DATABASE_URL: str = ""
     
+    # Directus configuration (FIXED for Docker network)
+    DIRECTUS_URL: str = "http://directus:8055"  # Internal Docker network
+    DIRECTUS_TOKEN: str = ""
+    
+    # Video settings
+    MAX_VIDEO_SIZE_MB: int = 50
+    VIDEO_DOWNLOAD_TIMEOUT: int = 120
+    
     WEBHOOK_ENABLED: bool = False
     WEBHOOK_URL: str = ""
     WEBHOOK_PATH: str = "/webhook"

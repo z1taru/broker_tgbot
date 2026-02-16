@@ -178,28 +178,30 @@ async def handle_text_message(message: Message, state: FSMContext):
 
 async def send_faq_answer(message: Message, response: dict, language: str = "ru"):
     """
-    Отправка ответа с видео (УЛУЧШЕННАЯ ВЕРСИЯ с детальным логированием)
+    Отправка ответа с видео (PUBLIC ACCESS - no token)
     """
     answer_text = response.get("answer_text", "")
-    video_url = response.get("video_url")  # Уже полный URL из API
+    video_url = response.get("video_url")  # URL from API (public access)
     
     logger.info(f"📤 Sending answer | video_url: {video_url} | language: {language}")
     
     if video_url:
         video_sent = False
         
-        # Скачивание и отправка видео
+        # ✅ Download video (no token needed)
         try:
-            # Увеличенный timeout и добавлены headers
-            timeout = aiohttp.ClientTimeout(total=120, connect=30)
+            timeout = aiohttp.ClientTimeout(
+                total=settings.VIDEO_DOWNLOAD_TIMEOUT,
+                connect=30
+            )
             headers = {
-                'User-Agent': 'Mozilla/5.0 (compatible; TelegramBot/1.0)',
+                'User-Agent': 'TelegramBot/1.0',
                 'Accept': '*/*'
             }
             
+            logger.info(f"🔄 Downloading video from: {video_url}")
+            
             async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
-                logger.info(f"🔄 Downloading video from: {video_url}")
-                
                 async with session.get(video_url) as video_resp:
                     logger.info(f"📡 Video response status: {video_resp.status}")
                     logger.info(f"📡 Video response headers: {dict(video_resp.headers)}")
@@ -209,14 +211,14 @@ async def send_faq_answer(message: Message, response: dict, language: str = "ru"
                         video_size_mb = len(video_data) / (1024 * 1024)
                         logger.info(f"✅ Video downloaded: {video_size_mb:.2f} MB")
                         
-                        # Проверка размера (Telegram лимит ~50MB)
-                        if video_size_mb > 50:
+                        # Check Telegram size limit
+                        if video_size_mb > settings.MAX_VIDEO_SIZE_MB:
                             logger.error(f"❌ Video too large: {video_size_mb:.2f} MB")
                             raise ValueError(f"Video size {video_size_mb:.2f} MB exceeds Telegram limit")
                         
-                        # Извлекаем имя файла из URL (без query params)
+                        # Extract filename from URL (without query params)
                         filename = video_url.split('/')[-1].split('?')[0]
-                        if not filename.endswith(('.mp4', '.mov', '.avi')):
+                        if not filename.endswith(('.mp4', '.mov', '.avi', '.webm')):
                             filename = f"{filename}.mp4"
                         
                         logger.info(f"📦 Preparing video file: {filename}")
@@ -226,7 +228,7 @@ async def send_faq_answer(message: Message, response: dict, language: str = "ru"
                             filename=filename
                         )
                         
-                        # Отправка видео с caption
+                        # Send video with caption
                         logger.info("📤 Sending video to Telegram...")
                         await message.answer_video(
                             video=video_file,
@@ -235,12 +237,19 @@ async def send_faq_answer(message: Message, response: dict, language: str = "ru"
                         )
                         logger.info("✅ Video sent successfully")
                         video_sent = True
+                        
+                    elif video_resp.status == 403:
+                        logger.error(f"❌ Access denied (403). Make sure directus_files has Read: All in Public role")
+                    elif video_resp.status == 404:
+                        logger.error(f"❌ Video not found (404): {video_url}")
                     else:
                         error_text = await video_resp.text()
                         logger.error(f"❌ Video download failed with status {video_resp.status}: {error_text[:200]}")
                         
         except asyncio.TimeoutError:
-            logger.error(f"❌ Video download timeout after 120s: {video_url}")
+            logger.error(f"❌ Video download timeout after {settings.VIDEO_DOWNLOAD_TIMEOUT}s: {video_url}")
+        except aiohttp.ClientConnectorError as e:
+            logger.error(f"❌ Connection error: {e}. Check DIRECTUS_URL={settings.DIRECTUS_URL} in .env")
         except aiohttp.ClientError as e:
             logger.error(f"❌ HTTP client error downloading video: {e}")
         except ValueError as e:
@@ -248,15 +257,21 @@ async def send_faq_answer(message: Message, response: dict, language: str = "ru"
         except Exception as e:
             logger.error(f"❌ Unexpected error downloading/sending video: {type(e).__name__}: {e}", exc_info=True)
         
-        # Fallback - только текст
+        # ✅ Fallback: send text-only if video failed
         if not video_sent:
             logger.warning(f"⚠️ Sending text-only fallback for failed video: {video_url}")
             if language == "kk":
-                await message.answer(f"💡 {answer_text}\n\n⚠️ Видео уақытша қолжетімсіз. Куратор қызметіне хабарласыңыз.")
+                await message.answer(
+                    f"💡 {answer_text}\n\n"
+                    f"⚠️ Видео уақытша қолжетімсіз. Куратор қызметіне хабарласыңыз."
+                )
             else:
-                await message.answer(f"💡 {answer_text}\n\n⚠️ Видео временно недоступно. Обратитесь к куратору.")
+                await message.answer(
+                    f"💡 {answer_text}\n\n"
+                    f"⚠️ Видео временно недоступно. Обратитесь к куратору."
+                )
     else:
-        # Нет видео - отправляем только текст
+        # No video - send text only
         logger.info("📝 No video URL provided, sending text only")
         await message.answer(f"💡 {answer_text}")
 

@@ -14,8 +14,12 @@ class Settings(BaseSettings):
     )
     
     DATABASE_URL: PostgresDsn
-    DIRECTUS_PUBLIC_URL: str = "http://localhost:8054"  # Directus base URL for video assets
-    DIRECTUS_TOKEN: str = ""  # Optional access token for Directus assets
+    
+    # Directus configuration (FIXED for Docker network)
+    DIRECTUS_URL: str = "http://directus:8055"  # Internal Docker network
+    DIRECTUS_PUBLIC_URL: str = "http://localhost:8054"  # External access (for docs)
+    DIRECTUS_TOKEN: str = ""  # Access token for Directus assets
+    
     ENVIRONMENT: Literal["development", "production", "testing"] = "development"
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     CORS_ORIGINS: str = "*"

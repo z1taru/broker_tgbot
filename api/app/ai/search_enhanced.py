@@ -1,4 +1,4 @@
-# api/app/ai/search_enhanced.py - SIMPLIFIED VERSION
+# api/app/ai/search_enhanced.py - SIMPLIFIED VERSION (Public Assets)
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy import text, select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ class EnhancedSearchService:
     @staticmethod
     def _build_video_url(video_file_id: Optional[str]) -> Optional[str]:
         """
-        Build Directus video URL from file_id
+        Build Directus video URL from file_id (PUBLIC ACCESS - no token)
         
         Args:
             video_file_id: Directus file UUID
@@ -29,13 +29,9 @@ class EnhancedSearchService:
         if not video_file_id or video_file_id == 'None':
             return None
         
-        base_url = settings.DIRECTUS_PUBLIC_URL.rstrip('/')
-        
-        # If token is configured, append it
-        if settings.DIRECTUS_TOKEN:
-            return f"{base_url}/assets/{video_file_id}?access_token={settings.DIRECTUS_TOKEN}"
-        
-        return f"{base_url}/assets/{video_file_id}"
+        # ✅ FIX: Public access, no token needed
+        base_url = settings.DIRECTUS_URL.rstrip('/')
+        return f"{base_url}/uploads/{video_file_id}"
     
     @staticmethod
     async def find_similar_faqs(
@@ -50,7 +46,6 @@ class EnhancedSearchService:
         """
         embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
         
-        # ✅ УПРОЩЕННАЯ ВЕРСИЯ: video уже содержит UUID
         sql = text("""
             SELECT 
                 faq_v2.id,
@@ -92,7 +87,6 @@ class EnhancedSearchService:
         Keyword-based fallback search
         SIMPLIFIED: Assumes faq_content.video already contains UUID
         """
-        # ✅ УПРОЩЕННАЯ ВЕРСИЯ
         sql = text("""
             SELECT 
                 faq_v2.id,
@@ -227,7 +221,7 @@ class EnhancedSearchService:
         for row in rows:
             video_file_id = row[3]  # UUID from faq_content.video
             
-            # ✅ ЛОГИРОВАНИЕ для отладки
+            # ✅ Build proper video URL (public access)
             if video_file_id:
                 logger.info(f"FAQ {row[0]}: Found video_file_id = {video_file_id}")
             else:

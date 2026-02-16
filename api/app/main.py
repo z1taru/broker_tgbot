@@ -115,6 +115,33 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         },
     )
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    logger.info("🚀 Starting FAQ Bot API...")
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    
+    try:
+        await check_db_connection(max_retries=5, retry_delay=2)
+        logger.info("✅ Database connection established")
+    except Exception as e:
+        logger.error(f"❌ Failed to connect to database: {e}")
+        raise
+    
+    # ✅ Check Directus connectivity (NEW)
+    from app.utils.directus_health import check_directus_health
+    if await check_directus_health():
+        logger.info("✅ Directus connection verified")
+    else:
+        logger.warning("⚠️ Directus not reachable (will retry on demand)")
+    
+    logger.info("✅ API started successfully")
+    
+    yield
+    
+    logger.info("🛑 Shutting down FAQ Bot API...")
+    await close_db_connection()
+    logger.info("✅ API shutdown complete")
+
 
 app.include_router(health.router, tags=["Health"])
 app.include_router(faq.router, prefix="/faq", tags=["FAQ"])
