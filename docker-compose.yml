@@ -126,6 +126,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL}
       ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD}
+      INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET}
       
       # ✅ Production settings
       PUBLIC_URL: ${DIRECTUS_PUBLIC_URL:-https://admin.brokerbot.kz}
