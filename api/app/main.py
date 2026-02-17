@@ -15,6 +15,8 @@ from app.config import settings
 from app.core.database import check_db_connection, close_db_connection
 from app.core.exceptions import AppException
 from app.core.logging_config import get_logger, setup_logging
+from app.api.routes import internal
+
 
 setup_logging()
 logger = get_logger(__name__)
@@ -146,6 +148,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app.include_router(health.router, tags=["Health"])
 app.include_router(faq.router, prefix="/faq", tags=["FAQ"])
 app.include_router(ask.router, prefix="/api", tags=["AI"])
+app.include_router(internal.router, tags=['Internal'])
+
 # ✅ ИСПРАВЛЕНО: убрал app.include_router(ask_v2.router)
 
 
