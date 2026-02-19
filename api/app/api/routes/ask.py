@@ -14,7 +14,6 @@ from app.ai.language_detector import LanguageDetector
 logger = get_logger(__name__)
 router = APIRouter()
 
-# Быстрая классификация без LLM
 GREETING_WORDS = {
     'привет', 'сәлем', 'салем', 'hello', 'hi',
     'добрый', 'здравствуй', 'сәлеметсіз', 'қайырлы'
@@ -25,6 +24,14 @@ def classify_intent_fast(text: str) -> str:
     if any(w in lower for w in GREETING_WORDS) and len(lower) < 40:
         return 'greeting'
     return 'faq'
+
+def build_answer_text(faq: dict) -> str:
+    """Собирает финальный текст ответа с disclaimer если есть"""
+    answer = faq['answer_text']
+    footer = faq.get('description_footer')
+    if footer and footer.strip():
+        answer = f"{answer}\n\n_{footer}_"
+    return answer
 
 
 @router.post("/ask", response_model=AskResponse)
@@ -41,7 +48,7 @@ async def ask_question(
 
         logger.info(f"🔍 Question: '{request.question}' | Lang: {language}")
 
-        # 2. Fast intent — без LLM
+        # 2. Fast intent
         intent = classify_intent_fast(request.question)
         logger.info(f"🎯 Intent: {intent}")
 
@@ -67,7 +74,7 @@ async def ask_question(
                 confidence=1.0
             )
 
-        # === FAQ — всё остальное идёт в векторный поиск ===
+        # === FAQ ===
         embedding_service = EmbeddingService()
         query_embedding = await embedding_service.create_embedding(request.question)
 
@@ -98,19 +105,19 @@ async def ask_question(
 
         logger.info(f"📊 Best score: {best_score:.3f} | FAQ: {best_faq['question'][:50]}")
 
-        # HIGH confidence (>= 0.40) — прямой ответ с видео
+        # HIGH confidence (>= 0.40)
         if best_score >= 0.40:
             logger.info(f"✅ HIGH confidence: {best_score:.3f}")
             return AskResponse(
                 action="direct_answer",
                 question=request.question,
-                answer_text=best_faq['answer_text'],
+                answer_text=build_answer_text(best_faq),
                 video_url=best_faq.get('video_url'),
                 faq_id=best_faq['id'],
                 confidence=best_score
             )
 
-        # MEDIUM confidence (0.20-0.40) — GPT синтез
+        # MEDIUM confidence (0.20-0.40)
         elif best_score >= 0.20:
             logger.info(f"🤔 MEDIUM confidence: {best_score:.3f}")
             answer = await gpt_service.generate_answer_from_faqs(
@@ -118,6 +125,10 @@ async def ask_question(
                 matched_faqs=faqs_with_scores[:3],
                 language=language
             )
+            footer = best_faq.get('description_footer')
+            if footer and footer.strip():
+                answer = f"{answer}\n\n_{footer}_"
+
             return AskResponse(
                 action="direct_answer",
                 question=request.question,
@@ -128,7 +139,7 @@ async def ask_question(
                 suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
             )
 
-        # LOW confidence (0.10-0.20) — уточняющий вопрос без LLM
+        # LOW confidence (0.10-0.20)
         elif best_score >= 0.10:
             logger.info(f"📋 LOW confidence: {best_score:.3f}")
             options = '\n'.join(
@@ -148,7 +159,7 @@ async def ask_question(
                 suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
             )
 
-        # VERY LOW (< 0.10) — no match
+        # VERY LOW (< 0.10)
         else:
             logger.info(f"❌ VERY LOW confidence: {best_score:.3f}")
             if language == "kk":

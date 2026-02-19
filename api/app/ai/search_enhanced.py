@@ -55,6 +55,7 @@ class EnhancedSearchService:
                 faq_v2.category,
                 faq_content.language,
                 faq_v2.created_at,
+                faq_content.description_footer,
                 1 - (faq_content.question_embedding <=> CAST(:embedding AS vector)) as similarity
             FROM faq_content
             INNER JOIN faq_v2 ON faq_content.faq_id = faq_v2.id
@@ -236,9 +237,10 @@ class EnhancedSearchService:
                 'video_url': video_url,
                 'category': row[4],
                 'language': row[5],
-                'created_at': row[6]
+                'created_at': row[6],
+                'description_footer': row[7],
             }
-            score = float(row[7])
+            score = float(row[8])
             candidates.append((faq, score))
         
         # Fallback: Keyword search if vector results are poor

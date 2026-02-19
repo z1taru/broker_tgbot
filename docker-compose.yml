@@ -114,7 +114,7 @@ services:
     image: directus/directus:latest
     container_name: faq_directus
     ports:
-      - "127.0.0.1:8055:8055"  # ✅ Только через Nginx
+      - "127.0.0.1:8054:8055"  # ✅ Только через Nginx
     environment:
       KEY: ${DIRECTUS_KEY}
       SECRET: ${DIRECTUS_SECRET}
@@ -127,9 +127,18 @@ services:
       ADMIN_EMAIL: ${DIRECTUS_ADMIN_EMAIL}
       ADMIN_PASSWORD: ${DIRECTUS_ADMIN_PASSWORD}
       INTERNAL_WEBHOOK_SECRET: ${INTERNAL_WEBHOOK_SECRET}
-      
-      # ✅ Production settings
+
       PUBLIC_URL: ${DIRECTUS_PUBLIC_URL:-https://admin.brokerbot.kz}
+
+      STORAGE_LOCATIONS: "s3"
+      STORAGE_S3_DRIVER: "s3"
+      STORAGE_S3_KEY: ${S3_ACCESS_KEY}
+      STORAGE_S3_SECRET: ${S3_SECRET_KEY}
+      STORAGE_S3_BUCKET: "Recapital"
+      STORAGE_S3_REGION: "us-east-1"
+      STORAGE_S3_ENDPOINT: "https://s3-ast.24saas.kz:10443"
+      STORAGE_S3_FORCE_PATH_STYLE: "true"
+
       ASSETS_TRANSFORM_MAX_CONCURRENT: "5"
       CORS_ENABLED: "true"
       CORS_ORIGIN: "true"

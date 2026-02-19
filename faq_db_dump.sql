@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict TQfHbV7kaGmK3cHFLV0kugGPc907gxg2twqjVTEdENddwGlxeIEx45JJ30kmqcm
+\restrict zyOfh6EIMgepeN94TgTaf3B8bnMraHvNpTS5OYboVGSBQY3UaSCi5oiksQhaEj5
 
 -- Dumped from database version 15.15 (Debian 15.15-1.pgdg12+1)
 -- Dumped by pg_dump version 15.15 (Debian 15.15-1.pgdg12+1)
@@ -18,6 +18,194 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+ALTER TABLE IF EXISTS ONLY public.query_analytics DROP CONSTRAINT IF EXISTS query_analytics_user_clicked_faq_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.query_analytics DROP CONSTRAINT IF EXISTS query_analytics_top_faq_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_matched_faq_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.faq DROP CONSTRAINT IF EXISTS faq_video_foreign;
+ALTER TABLE IF EXISTS ONLY public.faq_tags DROP CONSTRAINT IF EXISTS faq_tags_tag_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.faq_tags DROP CONSTRAINT IF EXISTS faq_tags_faq_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.faq_content DROP CONSTRAINT IF EXISTS faq_content_video_foreign;
+ALTER TABLE IF EXISTS ONLY public.faq_content DROP CONSTRAINT IF EXISTS faq_content_faq_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.directus_webhooks DROP CONSTRAINT IF EXISTS directus_webhooks_migrated_flow_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_versions DROP CONSTRAINT IF EXISTS directus_versions_user_updated_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_versions DROP CONSTRAINT IF EXISTS directus_versions_user_created_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_versions DROP CONSTRAINT IF EXISTS directus_versions_collection_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_users DROP CONSTRAINT IF EXISTS directus_users_role_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_shares DROP CONSTRAINT IF EXISTS directus_shares_user_created_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_shares DROP CONSTRAINT IF EXISTS directus_shares_role_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_shares DROP CONSTRAINT IF EXISTS directus_shares_collection_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_settings DROP CONSTRAINT IF EXISTS directus_settings_storage_default_folder_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_settings DROP CONSTRAINT IF EXISTS directus_settings_public_registration_role_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_settings DROP CONSTRAINT IF EXISTS directus_settings_public_foreground_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_settings DROP CONSTRAINT IF EXISTS directus_settings_public_favicon_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_settings DROP CONSTRAINT IF EXISTS directus_settings_public_background_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_settings DROP CONSTRAINT IF EXISTS directus_settings_project_logo_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_sessions DROP CONSTRAINT IF EXISTS directus_sessions_user_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_sessions DROP CONSTRAINT IF EXISTS directus_sessions_share_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_roles DROP CONSTRAINT IF EXISTS directus_roles_parent_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_revisions DROP CONSTRAINT IF EXISTS directus_revisions_version_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_revisions DROP CONSTRAINT IF EXISTS directus_revisions_parent_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_revisions DROP CONSTRAINT IF EXISTS directus_revisions_activity_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_presets DROP CONSTRAINT IF EXISTS directus_presets_user_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_presets DROP CONSTRAINT IF EXISTS directus_presets_role_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_permissions DROP CONSTRAINT IF EXISTS directus_permissions_policy_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_panels DROP CONSTRAINT IF EXISTS directus_panels_user_created_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_panels DROP CONSTRAINT IF EXISTS directus_panels_dashboard_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_operations DROP CONSTRAINT IF EXISTS directus_operations_user_created_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_operations DROP CONSTRAINT IF EXISTS directus_operations_resolve_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_operations DROP CONSTRAINT IF EXISTS directus_operations_reject_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_operations DROP CONSTRAINT IF EXISTS directus_operations_flow_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_notifications DROP CONSTRAINT IF EXISTS directus_notifications_sender_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_notifications DROP CONSTRAINT IF EXISTS directus_notifications_recipient_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_folders DROP CONSTRAINT IF EXISTS directus_folders_parent_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_flows DROP CONSTRAINT IF EXISTS directus_flows_user_created_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_files DROP CONSTRAINT IF EXISTS directus_files_uploaded_by_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_files DROP CONSTRAINT IF EXISTS directus_files_modified_by_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_files DROP CONSTRAINT IF EXISTS directus_files_folder_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_dashboards DROP CONSTRAINT IF EXISTS directus_dashboards_user_created_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_comments DROP CONSTRAINT IF EXISTS directus_comments_user_updated_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_comments DROP CONSTRAINT IF EXISTS directus_comments_user_created_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_collections DROP CONSTRAINT IF EXISTS directus_collections_group_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_access DROP CONSTRAINT IF EXISTS directus_access_user_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_access DROP CONSTRAINT IF EXISTS directus_access_role_foreign;
+ALTER TABLE IF EXISTS ONLY public.directus_access DROP CONSTRAINT IF EXISTS directus_access_policy_foreign;
+DROP TRIGGER IF EXISTS faq_v2_updated_at ON public.faq_v2;
+DROP INDEX IF EXISTS public.idx_search_cache_last_used;
+DROP INDEX IF EXISTS public.idx_search_cache_hash;
+DROP INDEX IF EXISTS public.idx_query_analytics_user;
+DROP INDEX IF EXISTS public.idx_query_analytics_created;
+DROP INDEX IF EXISTS public.idx_logs_telegram_id;
+DROP INDEX IF EXISTS public.idx_logs_telegram_created;
+DROP INDEX IF EXISTS public.idx_logs_faq_id;
+DROP INDEX IF EXISTS public.idx_logs_created_at;
+DROP INDEX IF EXISTS public.idx_faq_question_embedding;
+DROP INDEX IF EXISTS public.idx_faq_language;
+DROP INDEX IF EXISTS public.idx_faq_embedding;
+DROP INDEX IF EXISTS public.idx_faq_created_at;
+DROP INDEX IF EXISTS public.idx_faq_content_lang;
+DROP INDEX IF EXISTS public.idx_faq_content_keywords;
+DROP INDEX IF EXISTS public.idx_faq_content_faq_id;
+DROP INDEX IF EXISTS public.idx_faq_category_language;
+DROP INDEX IF EXISTS public.idx_faq_category;
+DROP INDEX IF EXISTS public.idx_faq_answer_embedding;
+ALTER TABLE IF EXISTS ONLY public.tags DROP CONSTRAINT IF EXISTS tags_pkey;
+ALTER TABLE IF EXISTS ONLY public.tags DROP CONSTRAINT IF EXISTS tags_name_key;
+ALTER TABLE IF EXISTS ONLY public.synonyms DROP CONSTRAINT IF EXISTS synonyms_pkey;
+ALTER TABLE IF EXISTS ONLY public.search_cache DROP CONSTRAINT IF EXISTS search_cache_query_hash_key;
+ALTER TABLE IF EXISTS ONLY public.search_cache DROP CONSTRAINT IF EXISTS search_cache_pkey;
+ALTER TABLE IF EXISTS ONLY public.query_analytics DROP CONSTRAINT IF EXISTS query_analytics_pkey;
+ALTER TABLE IF EXISTS ONLY public.logs DROP CONSTRAINT IF EXISTS logs_pkey;
+ALTER TABLE IF EXISTS ONLY public.faq_v2 DROP CONSTRAINT IF EXISTS faq_v2_pkey;
+ALTER TABLE IF EXISTS ONLY public.faq_tags DROP CONSTRAINT IF EXISTS faq_tags_pkey;
+ALTER TABLE IF EXISTS ONLY public.faq DROP CONSTRAINT IF EXISTS faq_pkey;
+ALTER TABLE IF EXISTS ONLY public.faq_content DROP CONSTRAINT IF EXISTS faq_content_pkey;
+ALTER TABLE IF EXISTS ONLY public.faq_content DROP CONSTRAINT IF EXISTS faq_content_faq_id_language_key;
+ALTER TABLE IF EXISTS ONLY public.directus_webhooks DROP CONSTRAINT IF EXISTS directus_webhooks_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_versions DROP CONSTRAINT IF EXISTS directus_versions_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_users DROP CONSTRAINT IF EXISTS directus_users_token_unique;
+ALTER TABLE IF EXISTS ONLY public.directus_users DROP CONSTRAINT IF EXISTS directus_users_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_users DROP CONSTRAINT IF EXISTS directus_users_external_identifier_unique;
+ALTER TABLE IF EXISTS ONLY public.directus_users DROP CONSTRAINT IF EXISTS directus_users_email_unique;
+ALTER TABLE IF EXISTS ONLY public.directus_translations DROP CONSTRAINT IF EXISTS directus_translations_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_shares DROP CONSTRAINT IF EXISTS directus_shares_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_settings DROP CONSTRAINT IF EXISTS directus_settings_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_sessions DROP CONSTRAINT IF EXISTS directus_sessions_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_roles DROP CONSTRAINT IF EXISTS directus_roles_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_revisions DROP CONSTRAINT IF EXISTS directus_revisions_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_relations DROP CONSTRAINT IF EXISTS directus_relations_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_presets DROP CONSTRAINT IF EXISTS directus_presets_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_policies DROP CONSTRAINT IF EXISTS directus_policies_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_permissions DROP CONSTRAINT IF EXISTS directus_permissions_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_panels DROP CONSTRAINT IF EXISTS directus_panels_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_operations DROP CONSTRAINT IF EXISTS directus_operations_resolve_unique;
+ALTER TABLE IF EXISTS ONLY public.directus_operations DROP CONSTRAINT IF EXISTS directus_operations_reject_unique;
+ALTER TABLE IF EXISTS ONLY public.directus_operations DROP CONSTRAINT IF EXISTS directus_operations_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_notifications DROP CONSTRAINT IF EXISTS directus_notifications_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_migrations DROP CONSTRAINT IF EXISTS directus_migrations_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_folders DROP CONSTRAINT IF EXISTS directus_folders_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_flows DROP CONSTRAINT IF EXISTS directus_flows_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_flows DROP CONSTRAINT IF EXISTS directus_flows_operation_unique;
+ALTER TABLE IF EXISTS ONLY public.directus_files DROP CONSTRAINT IF EXISTS directus_files_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_fields DROP CONSTRAINT IF EXISTS directus_fields_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_extensions DROP CONSTRAINT IF EXISTS directus_extensions_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_dashboards DROP CONSTRAINT IF EXISTS directus_dashboards_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_comments DROP CONSTRAINT IF EXISTS directus_comments_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_collections DROP CONSTRAINT IF EXISTS directus_collections_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_activity DROP CONSTRAINT IF EXISTS directus_activity_pkey;
+ALTER TABLE IF EXISTS ONLY public.directus_access DROP CONSTRAINT IF EXISTS directus_access_pkey;
+ALTER TABLE IF EXISTS public.tags ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.synonyms ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.search_cache ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.query_analytics ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.logs ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.faq_v2 ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.faq_content ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.faq ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.directus_webhooks ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.directus_settings ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.directus_revisions ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.directus_relations ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.directus_presets ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.directus_permissions ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.directus_notifications ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.directus_fields ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.directus_activity ALTER COLUMN id DROP DEFAULT;
+DROP SEQUENCE IF EXISTS public.tags_id_seq;
+DROP TABLE IF EXISTS public.tags;
+DROP SEQUENCE IF EXISTS public.synonyms_id_seq;
+DROP TABLE IF EXISTS public.synonyms;
+DROP SEQUENCE IF EXISTS public.search_cache_id_seq;
+DROP TABLE IF EXISTS public.search_cache;
+DROP SEQUENCE IF EXISTS public.query_analytics_id_seq;
+DROP TABLE IF EXISTS public.query_analytics;
+DROP SEQUENCE IF EXISTS public.logs_id_seq;
+DROP TABLE IF EXISTS public.logs;
+DROP SEQUENCE IF EXISTS public.faq_v2_id_seq;
+DROP TABLE IF EXISTS public.faq_v2;
+DROP TABLE IF EXISTS public.faq_tags;
+DROP SEQUENCE IF EXISTS public.faq_id_seq;
+DROP SEQUENCE IF EXISTS public.faq_content_id_seq;
+DROP TABLE IF EXISTS public.faq_content;
+DROP TABLE IF EXISTS public.faq;
+DROP SEQUENCE IF EXISTS public.directus_webhooks_id_seq;
+DROP TABLE IF EXISTS public.directus_webhooks;
+DROP TABLE IF EXISTS public.directus_versions;
+DROP TABLE IF EXISTS public.directus_users;
+DROP TABLE IF EXISTS public.directus_translations;
+DROP TABLE IF EXISTS public.directus_shares;
+DROP SEQUENCE IF EXISTS public.directus_settings_id_seq;
+DROP TABLE IF EXISTS public.directus_settings;
+DROP TABLE IF EXISTS public.directus_sessions;
+DROP TABLE IF EXISTS public.directus_roles;
+DROP SEQUENCE IF EXISTS public.directus_revisions_id_seq;
+DROP TABLE IF EXISTS public.directus_revisions;
+DROP SEQUENCE IF EXISTS public.directus_relations_id_seq;
+DROP TABLE IF EXISTS public.directus_relations;
+DROP SEQUENCE IF EXISTS public.directus_presets_id_seq;
+DROP TABLE IF EXISTS public.directus_presets;
+DROP TABLE IF EXISTS public.directus_policies;
+DROP SEQUENCE IF EXISTS public.directus_permissions_id_seq;
+DROP TABLE IF EXISTS public.directus_permissions;
+DROP TABLE IF EXISTS public.directus_panels;
+DROP TABLE IF EXISTS public.directus_operations;
+DROP SEQUENCE IF EXISTS public.directus_notifications_id_seq;
+DROP TABLE IF EXISTS public.directus_notifications;
+DROP TABLE IF EXISTS public.directus_migrations;
+DROP TABLE IF EXISTS public.directus_folders;
+DROP TABLE IF EXISTS public.directus_flows;
+DROP TABLE IF EXISTS public.directus_files;
+DROP SEQUENCE IF EXISTS public.directus_fields_id_seq;
+DROP TABLE IF EXISTS public.directus_fields;
+DROP TABLE IF EXISTS public.directus_extensions;
+DROP TABLE IF EXISTS public.directus_dashboards;
+DROP TABLE IF EXISTS public.directus_comments;
+DROP TABLE IF EXISTS public.directus_collections;
+DROP SEQUENCE IF EXISTS public.directus_activity_id_seq;
+DROP TABLE IF EXISTS public.directus_activity;
+DROP TABLE IF EXISTS public.directus_access;
+DROP FUNCTION IF EXISTS public.update_updated_at();
+DROP FUNCTION IF EXISTS public.get_popular_faqs(limit_count integer);
+DROP EXTENSION IF EXISTS vector;
 --
 -- Name: vector; Type: EXTENSION; Schema: -; Owner: -
 --
@@ -26,14 +214,14 @@ CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION vector; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION vector; Type: COMMENT; Schema: -; Owner: -
 --
 
 COMMENT ON EXTENSION vector IS 'vector data type and ivfflat and hnsw access methods';
 
 
 --
--- Name: get_popular_faqs(integer); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: get_popular_faqs(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.get_popular_faqs(limit_count integer DEFAULT 10) RETURNS TABLE(faq_id integer, question text, view_count bigint)
@@ -54,10 +242,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.get_popular_faqs(limit_count integer) OWNER TO postgres;
-
 --
--- Name: update_updated_at(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: update_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.update_updated_at() RETURNS trigger
@@ -70,14 +256,12 @@ END;
 $$;
 
 
-ALTER FUNCTION public.update_updated_at() OWNER TO postgres;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: directus_access; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_access; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_access (
@@ -89,10 +273,8 @@ CREATE TABLE public.directus_access (
 );
 
 
-ALTER TABLE public.directus_access OWNER TO postgres;
-
 --
--- Name: directus_activity; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_activity; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_activity (
@@ -108,10 +290,8 @@ CREATE TABLE public.directus_activity (
 );
 
 
-ALTER TABLE public.directus_activity OWNER TO postgres;
-
 --
--- Name: directus_activity_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: directus_activity_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.directus_activity_id_seq
@@ -123,17 +303,15 @@ CREATE SEQUENCE public.directus_activity_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.directus_activity_id_seq OWNER TO postgres;
-
 --
--- Name: directus_activity_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: directus_activity_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.directus_activity_id_seq OWNED BY public.directus_activity.id;
 
 
 --
--- Name: directus_collections; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_collections; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_collections (
@@ -160,10 +338,8 @@ CREATE TABLE public.directus_collections (
 );
 
 
-ALTER TABLE public.directus_collections OWNER TO postgres;
-
 --
--- Name: directus_comments; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_comments; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_comments (
@@ -178,10 +354,8 @@ CREATE TABLE public.directus_comments (
 );
 
 
-ALTER TABLE public.directus_comments OWNER TO postgres;
-
 --
--- Name: directus_dashboards; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_dashboards; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_dashboards (
@@ -195,10 +369,8 @@ CREATE TABLE public.directus_dashboards (
 );
 
 
-ALTER TABLE public.directus_dashboards OWNER TO postgres;
-
 --
--- Name: directus_extensions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_extensions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_extensions (
@@ -210,10 +382,8 @@ CREATE TABLE public.directus_extensions (
 );
 
 
-ALTER TABLE public.directus_extensions OWNER TO postgres;
-
 --
--- Name: directus_fields; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_fields; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_fields (
@@ -239,10 +409,8 @@ CREATE TABLE public.directus_fields (
 );
 
 
-ALTER TABLE public.directus_fields OWNER TO postgres;
-
 --
--- Name: directus_fields_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: directus_fields_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.directus_fields_id_seq
@@ -254,17 +422,15 @@ CREATE SEQUENCE public.directus_fields_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.directus_fields_id_seq OWNER TO postgres;
-
 --
--- Name: directus_fields_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: directus_fields_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.directus_fields_id_seq OWNED BY public.directus_fields.id;
 
 
 --
--- Name: directus_files; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_files; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_files (
@@ -297,10 +463,8 @@ CREATE TABLE public.directus_files (
 );
 
 
-ALTER TABLE public.directus_files OWNER TO postgres;
-
 --
--- Name: directus_flows; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_flows; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_flows (
@@ -319,10 +483,8 @@ CREATE TABLE public.directus_flows (
 );
 
 
-ALTER TABLE public.directus_flows OWNER TO postgres;
-
 --
--- Name: directus_folders; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_folders; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_folders (
@@ -332,10 +494,8 @@ CREATE TABLE public.directus_folders (
 );
 
 
-ALTER TABLE public.directus_folders OWNER TO postgres;
-
 --
--- Name: directus_migrations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_migrations (
@@ -345,10 +505,8 @@ CREATE TABLE public.directus_migrations (
 );
 
 
-ALTER TABLE public.directus_migrations OWNER TO postgres;
-
 --
--- Name: directus_notifications; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_notifications; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_notifications (
@@ -364,10 +522,8 @@ CREATE TABLE public.directus_notifications (
 );
 
 
-ALTER TABLE public.directus_notifications OWNER TO postgres;
-
 --
--- Name: directus_notifications_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: directus_notifications_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.directus_notifications_id_seq
@@ -379,17 +535,15 @@ CREATE SEQUENCE public.directus_notifications_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.directus_notifications_id_seq OWNER TO postgres;
-
 --
--- Name: directus_notifications_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: directus_notifications_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.directus_notifications_id_seq OWNED BY public.directus_notifications.id;
 
 
 --
--- Name: directus_operations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_operations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_operations (
@@ -408,10 +562,8 @@ CREATE TABLE public.directus_operations (
 );
 
 
-ALTER TABLE public.directus_operations OWNER TO postgres;
-
 --
--- Name: directus_panels; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_panels; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_panels (
@@ -433,10 +585,8 @@ CREATE TABLE public.directus_panels (
 );
 
 
-ALTER TABLE public.directus_panels OWNER TO postgres;
-
 --
--- Name: directus_permissions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_permissions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_permissions (
@@ -451,10 +601,8 @@ CREATE TABLE public.directus_permissions (
 );
 
 
-ALTER TABLE public.directus_permissions OWNER TO postgres;
-
 --
--- Name: directus_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: directus_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.directus_permissions_id_seq
@@ -466,17 +614,15 @@ CREATE SEQUENCE public.directus_permissions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.directus_permissions_id_seq OWNER TO postgres;
-
 --
--- Name: directus_permissions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: directus_permissions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.directus_permissions_id_seq OWNED BY public.directus_permissions.id;
 
 
 --
--- Name: directus_policies; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_policies; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_policies (
@@ -491,10 +637,8 @@ CREATE TABLE public.directus_policies (
 );
 
 
-ALTER TABLE public.directus_policies OWNER TO postgres;
-
 --
--- Name: directus_presets; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_presets; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_presets (
@@ -514,10 +658,8 @@ CREATE TABLE public.directus_presets (
 );
 
 
-ALTER TABLE public.directus_presets OWNER TO postgres;
-
 --
--- Name: directus_presets_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: directus_presets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.directus_presets_id_seq
@@ -529,17 +671,15 @@ CREATE SEQUENCE public.directus_presets_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.directus_presets_id_seq OWNER TO postgres;
-
 --
--- Name: directus_presets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: directus_presets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.directus_presets_id_seq OWNED BY public.directus_presets.id;
 
 
 --
--- Name: directus_relations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_relations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_relations (
@@ -556,10 +696,8 @@ CREATE TABLE public.directus_relations (
 );
 
 
-ALTER TABLE public.directus_relations OWNER TO postgres;
-
 --
--- Name: directus_relations_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: directus_relations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.directus_relations_id_seq
@@ -571,17 +709,15 @@ CREATE SEQUENCE public.directus_relations_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.directus_relations_id_seq OWNER TO postgres;
-
 --
--- Name: directus_relations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: directus_relations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.directus_relations_id_seq OWNED BY public.directus_relations.id;
 
 
 --
--- Name: directus_revisions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_revisions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_revisions (
@@ -596,10 +732,8 @@ CREATE TABLE public.directus_revisions (
 );
 
 
-ALTER TABLE public.directus_revisions OWNER TO postgres;
-
 --
--- Name: directus_revisions_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: directus_revisions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.directus_revisions_id_seq
@@ -611,17 +745,15 @@ CREATE SEQUENCE public.directus_revisions_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.directus_revisions_id_seq OWNER TO postgres;
-
 --
--- Name: directus_revisions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: directus_revisions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.directus_revisions_id_seq OWNED BY public.directus_revisions.id;
 
 
 --
--- Name: directus_roles; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_roles; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_roles (
@@ -633,10 +765,8 @@ CREATE TABLE public.directus_roles (
 );
 
 
-ALTER TABLE public.directus_roles OWNER TO postgres;
-
 --
--- Name: directus_sessions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_sessions (
@@ -651,10 +781,8 @@ CREATE TABLE public.directus_sessions (
 );
 
 
-ALTER TABLE public.directus_sessions OWNER TO postgres;
-
 --
--- Name: directus_settings; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_settings; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_settings (
@@ -702,10 +830,8 @@ CREATE TABLE public.directus_settings (
 );
 
 
-ALTER TABLE public.directus_settings OWNER TO postgres;
-
 --
--- Name: directus_settings_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: directus_settings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.directus_settings_id_seq
@@ -717,17 +843,15 @@ CREATE SEQUENCE public.directus_settings_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.directus_settings_id_seq OWNER TO postgres;
-
 --
--- Name: directus_settings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: directus_settings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.directus_settings_id_seq OWNED BY public.directus_settings.id;
 
 
 --
--- Name: directus_shares; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_shares; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_shares (
@@ -746,10 +870,8 @@ CREATE TABLE public.directus_shares (
 );
 
 
-ALTER TABLE public.directus_shares OWNER TO postgres;
-
 --
--- Name: directus_translations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_translations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_translations (
@@ -760,10 +882,8 @@ CREATE TABLE public.directus_translations (
 );
 
 
-ALTER TABLE public.directus_translations OWNER TO postgres;
-
 --
--- Name: directus_users; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_users; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_users (
@@ -797,10 +917,8 @@ CREATE TABLE public.directus_users (
 );
 
 
-ALTER TABLE public.directus_users OWNER TO postgres;
-
 --
--- Name: directus_versions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_versions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_versions (
@@ -818,10 +936,8 @@ CREATE TABLE public.directus_versions (
 );
 
 
-ALTER TABLE public.directus_versions OWNER TO postgres;
-
 --
--- Name: directus_webhooks; Type: TABLE; Schema: public; Owner: postgres
+-- Name: directus_webhooks; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.directus_webhooks (
@@ -839,10 +955,8 @@ CREATE TABLE public.directus_webhooks (
 );
 
 
-ALTER TABLE public.directus_webhooks OWNER TO postgres;
-
 --
--- Name: directus_webhooks_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: directus_webhooks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.directus_webhooks_id_seq
@@ -854,17 +968,15 @@ CREATE SEQUENCE public.directus_webhooks_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.directus_webhooks_id_seq OWNER TO postgres;
-
 --
--- Name: directus_webhooks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: directus_webhooks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.directus_webhooks_id_seq OWNED BY public.directus_webhooks.id;
 
 
 --
--- Name: faq; Type: TABLE; Schema: public; Owner: postgres
+-- Name: faq; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.faq (
@@ -879,52 +991,50 @@ CREATE TABLE public.faq (
 );
 
 
-ALTER TABLE public.faq OWNER TO postgres;
-
 --
--- Name: TABLE faq; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: TABLE faq; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON TABLE public.faq IS 'Таблица часто задаваемых вопросов';
 
 
 --
--- Name: COLUMN faq.question; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: COLUMN faq.question; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.faq.question IS 'Текст вопроса';
 
 
 --
--- Name: COLUMN faq.answer_text; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: COLUMN faq.answer_text; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.faq.answer_text IS 'Текстовый ответ';
 
 
 --
--- Name: COLUMN faq.category; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: COLUMN faq.category; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.faq.category IS 'Категория вопроса';
 
 
 --
--- Name: COLUMN faq.language; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: COLUMN faq.language; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.faq.language IS 'Язык (kk, ru, en)';
 
 
 --
--- Name: COLUMN faq.embedding; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: COLUMN faq.embedding; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.faq.embedding IS 'OpenAI text-embedding-3-small vector (1536 dimensions)';
 
 
 --
--- Name: faq_content; Type: TABLE; Schema: public; Owner: postgres
+-- Name: faq_content; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.faq_content (
@@ -942,10 +1052,8 @@ CREATE TABLE public.faq_content (
 );
 
 
-ALTER TABLE public.faq_content OWNER TO postgres;
-
 --
--- Name: faq_content_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: faq_content_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.faq_content_id_seq
@@ -957,17 +1065,15 @@ CREATE SEQUENCE public.faq_content_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.faq_content_id_seq OWNER TO postgres;
-
 --
--- Name: faq_content_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: faq_content_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.faq_content_id_seq OWNED BY public.faq_content.id;
 
 
 --
--- Name: faq_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: faq_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.faq_id_seq
@@ -979,17 +1085,15 @@ CREATE SEQUENCE public.faq_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.faq_id_seq OWNER TO postgres;
-
 --
--- Name: faq_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: faq_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.faq_id_seq OWNED BY public.faq.id;
 
 
 --
--- Name: faq_tags; Type: TABLE; Schema: public; Owner: postgres
+-- Name: faq_tags; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.faq_tags (
@@ -998,10 +1102,8 @@ CREATE TABLE public.faq_tags (
 );
 
 
-ALTER TABLE public.faq_tags OWNER TO postgres;
-
 --
--- Name: faq_v2; Type: TABLE; Schema: public; Owner: postgres
+-- Name: faq_v2; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.faq_v2 (
@@ -1016,10 +1118,8 @@ CREATE TABLE public.faq_v2 (
 );
 
 
-ALTER TABLE public.faq_v2 OWNER TO postgres;
-
 --
--- Name: faq_v2_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: faq_v2_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.faq_v2_id_seq
@@ -1031,17 +1131,15 @@ CREATE SEQUENCE public.faq_v2_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.faq_v2_id_seq OWNER TO postgres;
-
 --
--- Name: faq_v2_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: faq_v2_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.faq_v2_id_seq OWNED BY public.faq_v2.id;
 
 
 --
--- Name: logs; Type: TABLE; Schema: public; Owner: postgres
+-- Name: logs; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.logs (
@@ -1054,45 +1152,43 @@ CREATE TABLE public.logs (
 );
 
 
-ALTER TABLE public.logs OWNER TO postgres;
-
 --
--- Name: TABLE logs; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: TABLE logs; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON TABLE public.logs IS 'Логи действий пользователей';
 
 
 --
--- Name: COLUMN logs.telegram_id; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: COLUMN logs.telegram_id; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.logs.telegram_id IS 'Telegram ID пользователя';
 
 
 --
--- Name: COLUMN logs.question; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: COLUMN logs.question; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.logs.question IS 'Текст вопроса пользователя';
 
 
 --
--- Name: COLUMN logs.matched_faq_id; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: COLUMN logs.matched_faq_id; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.logs.matched_faq_id IS 'ID найденного FAQ';
 
 
 --
--- Name: COLUMN logs.confidence; Type: COMMENT; Schema: public; Owner: postgres
+-- Name: COLUMN logs.confidence; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.logs.confidence IS 'Уверенность в совпадении (0-1)';
 
 
 --
--- Name: logs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: logs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.logs_id_seq
@@ -1104,17 +1200,15 @@ CREATE SEQUENCE public.logs_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.logs_id_seq OWNER TO postgres;
-
 --
--- Name: logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.logs_id_seq OWNED BY public.logs.id;
 
 
 --
--- Name: query_analytics; Type: TABLE; Schema: public; Owner: postgres
+-- Name: query_analytics; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.query_analytics (
@@ -1133,10 +1227,8 @@ CREATE TABLE public.query_analytics (
 );
 
 
-ALTER TABLE public.query_analytics OWNER TO postgres;
-
 --
--- Name: query_analytics_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: query_analytics_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.query_analytics_id_seq
@@ -1148,17 +1240,15 @@ CREATE SEQUENCE public.query_analytics_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.query_analytics_id_seq OWNER TO postgres;
-
 --
--- Name: query_analytics_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: query_analytics_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.query_analytics_id_seq OWNED BY public.query_analytics.id;
 
 
 --
--- Name: search_cache; Type: TABLE; Schema: public; Owner: postgres
+-- Name: search_cache; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.search_cache (
@@ -1173,10 +1263,8 @@ CREATE TABLE public.search_cache (
 );
 
 
-ALTER TABLE public.search_cache OWNER TO postgres;
-
 --
--- Name: search_cache_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: search_cache_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.search_cache_id_seq
@@ -1188,17 +1276,15 @@ CREATE SEQUENCE public.search_cache_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.search_cache_id_seq OWNER TO postgres;
-
 --
--- Name: search_cache_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: search_cache_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.search_cache_id_seq OWNED BY public.search_cache.id;
 
 
 --
--- Name: synonyms; Type: TABLE; Schema: public; Owner: postgres
+-- Name: synonyms; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.synonyms (
@@ -1210,10 +1296,8 @@ CREATE TABLE public.synonyms (
 );
 
 
-ALTER TABLE public.synonyms OWNER TO postgres;
-
 --
--- Name: synonyms_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: synonyms_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.synonyms_id_seq
@@ -1225,17 +1309,15 @@ CREATE SEQUENCE public.synonyms_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.synonyms_id_seq OWNER TO postgres;
-
 --
--- Name: synonyms_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: synonyms_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.synonyms_id_seq OWNED BY public.synonyms.id;
 
 
 --
--- Name: tags; Type: TABLE; Schema: public; Owner: postgres
+-- Name: tags; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.tags (
@@ -1245,10 +1327,8 @@ CREATE TABLE public.tags (
 );
 
 
-ALTER TABLE public.tags OWNER TO postgres;
-
 --
--- Name: tags_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: tags_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.tags_id_seq
@@ -1260,136 +1340,134 @@ CREATE SEQUENCE public.tags_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.tags_id_seq OWNER TO postgres;
-
 --
--- Name: tags_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: tags_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.tags_id_seq OWNED BY public.tags.id;
 
 
 --
--- Name: directus_activity id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: directus_activity id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_activity ALTER COLUMN id SET DEFAULT nextval('public.directus_activity_id_seq'::regclass);
 
 
 --
--- Name: directus_fields id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: directus_fields id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_fields ALTER COLUMN id SET DEFAULT nextval('public.directus_fields_id_seq'::regclass);
 
 
 --
--- Name: directus_notifications id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: directus_notifications id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_notifications ALTER COLUMN id SET DEFAULT nextval('public.directus_notifications_id_seq'::regclass);
 
 
 --
--- Name: directus_permissions id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: directus_permissions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_permissions ALTER COLUMN id SET DEFAULT nextval('public.directus_permissions_id_seq'::regclass);
 
 
 --
--- Name: directus_presets id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: directus_presets id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_presets ALTER COLUMN id SET DEFAULT nextval('public.directus_presets_id_seq'::regclass);
 
 
 --
--- Name: directus_relations id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: directus_relations id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_relations ALTER COLUMN id SET DEFAULT nextval('public.directus_relations_id_seq'::regclass);
 
 
 --
--- Name: directus_revisions id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: directus_revisions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_revisions ALTER COLUMN id SET DEFAULT nextval('public.directus_revisions_id_seq'::regclass);
 
 
 --
--- Name: directus_settings id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: directus_settings id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_settings ALTER COLUMN id SET DEFAULT nextval('public.directus_settings_id_seq'::regclass);
 
 
 --
--- Name: directus_webhooks id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: directus_webhooks id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_webhooks ALTER COLUMN id SET DEFAULT nextval('public.directus_webhooks_id_seq'::regclass);
 
 
 --
--- Name: faq id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: faq id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq ALTER COLUMN id SET DEFAULT nextval('public.faq_id_seq'::regclass);
 
 
 --
--- Name: faq_content id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: faq_content id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq_content ALTER COLUMN id SET DEFAULT nextval('public.faq_content_id_seq'::regclass);
 
 
 --
--- Name: faq_v2 id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: faq_v2 id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq_v2 ALTER COLUMN id SET DEFAULT nextval('public.faq_v2_id_seq'::regclass);
 
 
 --
--- Name: logs id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: logs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs ALTER COLUMN id SET DEFAULT nextval('public.logs_id_seq'::regclass);
 
 
 --
--- Name: query_analytics id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: query_analytics id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.query_analytics ALTER COLUMN id SET DEFAULT nextval('public.query_analytics_id_seq'::regclass);
 
 
 --
--- Name: search_cache id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: search_cache id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.search_cache ALTER COLUMN id SET DEFAULT nextval('public.search_cache_id_seq'::regclass);
 
 
 --
--- Name: synonyms id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: synonyms id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.synonyms ALTER COLUMN id SET DEFAULT nextval('public.synonyms_id_seq'::regclass);
 
 
 --
--- Name: tags id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: tags id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tags ALTER COLUMN id SET DEFAULT nextval('public.tags_id_seq'::regclass);
 
 
 --
--- Data for Name: directus_access; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_access; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_access (id, role, "user", policy, sort) FROM stdin;
@@ -1399,7 +1477,7 @@ COPY public.directus_access (id, role, "user", policy, sort) FROM stdin;
 
 
 --
--- Data for Name: directus_activity; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_activity; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_activity (id, action, "user", "timestamp", ip, user_agent, collection, item, origin) FROM stdin;
@@ -1517,11 +1595,22 @@ COPY public.directus_activity (id, action, "user", "timestamp", ip, user_agent, 
 112	create	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-13 08:31:55.9+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_permissions	3	http://localhost:8054
 113	update	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-13 08:31:55.914+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_policies	abf8a154-5b1c-4a46-ac9c-7300570f4f17	http://localhost:8054
 114	update	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-13 08:31:55.92+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_access	6e72e5f9-c4b9-4133-a526-8fd9f57925f4	http://localhost:8054
+115	login	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-15 20:08:44.139+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_users	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	http://localhost:8054
+116	update	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 06:06:19.527+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_users	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	http://localhost:8054
+117	create	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 06:10:17.92+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_permissions	4	http://localhost:8054
+118	update	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 06:10:17.925+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_policies	abf8a154-5b1c-4a46-ac9c-7300570f4f17	http://localhost:8054
+119	update	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 06:10:17.929+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_access	6e72e5f9-c4b9-4133-a526-8fd9f57925f4	http://localhost:8054
+120	create	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 06:13:40.734+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_permissions	5	http://localhost:8054
+121	update	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 06:13:40.744+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_policies	abf8a154-5b1c-4a46-ac9c-7300570f4f17	http://localhost:8054
+122	update	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 06:13:40.749+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_access	6e72e5f9-c4b9-4133-a526-8fd9f57925f4	http://localhost:8054
+123	update	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 06:15:38.486+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_permissions	3	http://localhost:8054
+124	update	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 06:15:38.496+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_policies	abf8a154-5b1c-4a46-ac9c-7300570f4f17	http://localhost:8054
+125	update	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 06:15:38.501+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	directus_access	6e72e5f9-c4b9-4133-a526-8fd9f57925f4	http://localhost:8054
 \.
 
 
 --
--- Data for Name: directus_collections; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_collections; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_collections (collection, icon, note, display_template, hidden, singleton, translations, archive_field, archive_app_filter, archive_value, unarchive_value, sort_field, accountability, color, item_duplication_fields, sort, "group", collapse, preview_url, versioning) FROM stdin;
@@ -1538,7 +1627,7 @@ tags	\N	\N	\N	f	f	\N	\N	t	\N	\N	\N	all	\N	\N	\N	\N	open	\N	f
 
 
 --
--- Data for Name: directus_comments; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_comments; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_comments (id, collection, item, comment, date_created, date_updated, user_created, user_updated) FROM stdin;
@@ -1546,7 +1635,7 @@ COPY public.directus_comments (id, collection, item, comment, date_created, date
 
 
 --
--- Data for Name: directus_dashboards; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_dashboards; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_dashboards (id, name, icon, note, date_created, user_created, color) FROM stdin;
@@ -1554,7 +1643,7 @@ COPY public.directus_dashboards (id, name, icon, note, date_created, user_create
 
 
 --
--- Data for Name: directus_extensions; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_extensions; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_extensions (enabled, id, folder, source, bundle) FROM stdin;
@@ -1562,7 +1651,7 @@ COPY public.directus_extensions (enabled, id, folder, source, bundle) FROM stdin
 
 
 --
--- Data for Name: directus_fields; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_fields; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_fields (id, collection, field, special, interface, options, display, display_options, readonly, hidden, sort, width, translations, note, conditions, required, "group", validation, validation_message) FROM stdin;
@@ -1631,7 +1720,7 @@ COPY public.directus_fields (id, collection, field, special, interface, options,
 
 
 --
--- Data for Name: directus_files; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_files; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_files (id, storage, filename_disk, filename_download, title, type, folder, uploaded_by, created_on, modified_by, modified_on, charset, filesize, width, height, duration, embed, description, location, tags, metadata, focal_point_x, focal_point_y, tus_id, tus_data, uploaded_on) FROM stdin;
@@ -1641,7 +1730,7 @@ b0c1034b-5a88-4a32-81fe-4aad9b624042	local	b0c1034b-5a88-4a32-81fe-4aad9b624042.
 
 
 --
--- Data for Name: directus_flows; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_flows; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_flows (id, name, icon, color, description, status, trigger, accountability, options, operation, date_created, user_created) FROM stdin;
@@ -1649,7 +1738,7 @@ COPY public.directus_flows (id, name, icon, color, description, status, trigger,
 
 
 --
--- Data for Name: directus_folders; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_folders; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_folders (id, name, parent) FROM stdin;
@@ -1657,7 +1746,7 @@ COPY public.directus_folders (id, name, parent) FROM stdin;
 
 
 --
--- Data for Name: directus_migrations; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_migrations; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_migrations (version, name, "timestamp") FROM stdin;
@@ -1756,7 +1845,7 @@ COPY public.directus_migrations (version, name, "timestamp") FROM stdin;
 
 
 --
--- Data for Name: directus_notifications; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_notifications; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_notifications (id, "timestamp", status, recipient, sender, subject, message, collection, item) FROM stdin;
@@ -1764,7 +1853,7 @@ COPY public.directus_notifications (id, "timestamp", status, recipient, sender, 
 
 
 --
--- Data for Name: directus_operations; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_operations; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_operations (id, name, key, type, position_x, position_y, options, resolve, reject, flow, date_created, user_created) FROM stdin;
@@ -1772,7 +1861,7 @@ COPY public.directus_operations (id, name, key, type, position_x, position_y, op
 
 
 --
--- Data for Name: directus_panels; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_panels; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_panels (id, dashboard, name, icon, color, show_header, note, type, position_x, position_y, width, height, options, date_created, user_created) FROM stdin;
@@ -1780,18 +1869,20 @@ COPY public.directus_panels (id, dashboard, name, icon, color, show_header, note
 
 
 --
--- Data for Name: directus_permissions; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_permissions; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_permissions (id, collection, action, permissions, validation, presets, fields, policy) FROM stdin;
 1	faq	read	\N	\N	\N	*	abf8a154-5b1c-4a46-ac9c-7300570f4f17
 2	faq_content	read	\N	\N	\N	*	abf8a154-5b1c-4a46-ac9c-7300570f4f17
+4	directus_fields	read	\N	\N	\N	*	abf8a154-5b1c-4a46-ac9c-7300570f4f17
+5	directus_permissions	read	\N	\N	\N	*	abf8a154-5b1c-4a46-ac9c-7300570f4f17
 3	directus_files	read	\N	\N	\N	*	abf8a154-5b1c-4a46-ac9c-7300570f4f17
 \.
 
 
 --
--- Data for Name: directus_policies; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_policies; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_policies (id, name, icon, description, ip_access, enforce_tfa, admin_access, app_access) FROM stdin;
@@ -1801,19 +1892,20 @@ b3c77e53-834c-4706-b320-ae5b4ea051ed	Administrator	verified	$t:admin_description
 
 
 --
--- Data for Name: directus_presets; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_presets; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_presets (id, bookmark, "user", role, collection, search, layout, layout_query, layout_options, refresh_interval, filter, icon, color) FROM stdin;
 3	\N	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	\N	faq_v2	\N	\N	{"tabular":{"page":1}}	\N	\N	\N	bookmark	\N
-4	\N	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	\N	directus_users	\N	cards	{"cards":{"sort":["email"],"page":1}}	{"cards":{"icon":"account_circle","title":"{{ first_name }} {{ last_name }}","subtitle":"{{ email }}","size":4}}	\N	\N	bookmark	\N
+5	\N	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	\N	faq	\N	\N	{"tabular":{"page":1}}	\N	\N	\N	bookmark	\N
 1	\N	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	\N	faq_tags	\N	\N	{"tabular":{"page":1}}	\N	\N	\N	bookmark	\N
 2	\N	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	\N	faq_content	\N	\N	{"tabular":{"page":1}}	\N	\N	\N	bookmark	\N
+4	\N	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	\N	directus_users	\N	cards	{"cards":{"sort":["email"],"page":1}}	{"cards":{"icon":"account_circle","title":"{{ first_name }} {{ last_name }}","subtitle":"{{ email }}","size":4}}	\N	\N	bookmark	\N
 \.
 
 
 --
--- Data for Name: directus_relations; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_relations; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_relations (id, many_collection, many_field, one_collection, one_field, one_collection_field, one_allowed_collections, junction_field, sort_field, one_deselect_action) FROM stdin;
@@ -1823,7 +1915,7 @@ COPY public.directus_relations (id, many_collection, many_field, one_collection,
 
 
 --
--- Data for Name: directus_revisions; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_revisions; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_revisions (id, activity, collection, item, data, delta, parent, version) FROM stdin;
@@ -1932,11 +2024,18 @@ COPY public.directus_revisions (id, activity, collection, item, data, delta, par
 103	111	directus_users	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	{"id":"a1c1617a-86f6-4f1b-9268-2920c0e77ecf","first_name":"Admin","last_name":"User","email":"admin@faq.com","password":"**********","location":null,"title":null,"description":null,"tags":null,"avatar":null,"language":null,"tfa_secret":null,"status":"active","role":"505a7445-0adb-41aa-a416-10556967532e","token":"**********","last_access":"2026-02-13T08:26:59.441Z","last_page":"/users/a1c1617a-86f6-4f1b-9268-2920c0e77ecf","provider":"default","external_identifier":null,"auth_data":null,"email_notifications":true,"appearance":null,"theme_dark":null,"theme_light":null,"theme_light_overrides":null,"theme_dark_overrides":null,"text_direction":"auto","policies":[]}	{"token":"**********"}	\N	\N
 104	112	directus_permissions	3	{"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17","permissions":null,"validation":null,"fields":["*"],"presets":null,"collection":"directus_files","action":"read"}	{"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17","permissions":null,"validation":null,"fields":["*"],"presets":null,"collection":"directus_files","action":"read"}	\N	\N
 105	114	directus_access	6e72e5f9-c4b9-4133-a526-8fd9f57925f4	{"id":"6e72e5f9-c4b9-4133-a526-8fd9f57925f4","role":null,"user":null,"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17","sort":1}	{"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17"}	\N	\N
+106	116	directus_users	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	{"id":"a1c1617a-86f6-4f1b-9268-2920c0e77ecf","first_name":"Admin","last_name":"User","email":"admin@faq.com","password":"**********","location":null,"title":null,"description":null,"tags":null,"avatar":null,"language":null,"tfa_secret":null,"status":"active","role":"505a7445-0adb-41aa-a416-10556967532e","token":"**********","last_access":"2026-02-16T05:06:16.376Z","last_page":"/users/a1c1617a-86f6-4f1b-9268-2920c0e77ecf","provider":"default","external_identifier":null,"auth_data":null,"email_notifications":true,"appearance":null,"theme_dark":null,"theme_light":null,"theme_light_overrides":null,"theme_dark_overrides":null,"text_direction":"auto","policies":[]}	{"token":"**********"}	\N	\N
+107	117	directus_permissions	4	{"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17","permissions":null,"validation":null,"fields":["*"],"presets":null,"collection":"directus_fields","action":"read"}	{"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17","permissions":null,"validation":null,"fields":["*"],"presets":null,"collection":"directus_fields","action":"read"}	\N	\N
+108	119	directus_access	6e72e5f9-c4b9-4133-a526-8fd9f57925f4	{"id":"6e72e5f9-c4b9-4133-a526-8fd9f57925f4","role":null,"user":null,"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17","sort":1}	{"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17"}	\N	\N
+109	120	directus_permissions	5	{"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17","permissions":null,"validation":null,"fields":["*"],"presets":null,"collection":"directus_permissions","action":"read"}	{"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17","permissions":null,"validation":null,"fields":["*"],"presets":null,"collection":"directus_permissions","action":"read"}	\N	\N
+110	122	directus_access	6e72e5f9-c4b9-4133-a526-8fd9f57925f4	{"id":"6e72e5f9-c4b9-4133-a526-8fd9f57925f4","role":null,"user":null,"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17","sort":1}	{"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17"}	\N	\N
+111	123	directus_permissions	3	{"id":3,"collection":"directus_files","action":"read","permissions":null,"validation":null,"presets":null,"fields":["*"],"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17"}	{"collection":"directus_files","action":"read","permissions":null,"validation":null,"presets":null,"fields":["*"],"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17"}	\N	\N
+112	125	directus_access	6e72e5f9-c4b9-4133-a526-8fd9f57925f4	{"id":"6e72e5f9-c4b9-4133-a526-8fd9f57925f4","role":null,"user":null,"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17","sort":1}	{"policy":"abf8a154-5b1c-4a46-ac9c-7300570f4f17"}	\N	\N
 \.
 
 
 --
--- Data for Name: directus_roles; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_roles; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_roles (id, name, icon, description, parent) FROM stdin;
@@ -1945,19 +2044,20 @@ COPY public.directus_roles (id, name, icon, description, parent) FROM stdin;
 
 
 --
--- Data for Name: directus_sessions; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_sessions; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_sessions (token, "user", expires, ip, user_agent, share, origin, next_token) FROM stdin;
 wjnGvUBljCzdv50nXi0KDUOf_Id1GIM9temhwmvfScKG4_cg_r6kLWOQ6QdAKEQ8	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-17 09:54:05.913+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	\N	http://localhost:8054	\N
-kpU4Nbam4wfVIM7CVyjANNjfHNMjstBKV_N_yZ2zXOsz1gf2PHX90YpcV_j_lukY	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-14 05:38:49.173+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	\N	http://localhost:8054	\N
 ojr4s71WD12whZ8tYdiaoM2cIKXRyvE8vEUtCjrkYUzrlQQdxANEeZrL9bykK8Xt	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-20 08:21:12.966+00	172.66.0.243	Python/3.12 aiohttp/3.13.3	\N	\N	\N
 XZ7fpHqpa2-O3hhKlqpgML4P_V78gPj3-vr6c4wpORAGWPgKnSieOlUKQWfgr16Y	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-20 08:26:59.428+00	172.66.0.243	Python/3.12 aiohttp/3.13.3	\N	\N	\N
+zFPSWhMZcyWP68qFvcjE1LC1MsXBGVd-VsZT0lvm4A5-1slTdeprrUjEziz_bxli	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-16 05:06:26.366+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	\N	http://localhost:8054	-gR6tZl8PWZ39HE9a_E224JFQQhuucth-HUJTsDJDEPwiqTQTQOGQbBFcnd3bqMW
+-gR6tZl8PWZ39HE9a_E224JFQQhuucth-HUJTsDJDEPwiqTQTQOGQbBFcnd3bqMW	a1c1617a-86f6-4f1b-9268-2920c0e77ecf	2026-02-17 05:06:16.365+00	172.66.0.243	Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36	\N	http://localhost:8054	\N
 \.
 
 
 --
--- Data for Name: directus_settings; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_settings; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_settings (id, project_name, project_url, project_color, project_logo, public_foreground, public_background, public_note, auth_login_attempts, auth_password_policy, storage_asset_transform, storage_asset_presets, custom_css, storage_default_folder, basemaps, mapbox_key, module_bar, project_descriptor, default_language, custom_aspect_ratios, public_favicon, default_appearance, default_theme_light, theme_light_overrides, default_theme_dark, theme_dark_overrides, report_error_url, report_bug_url, report_feature_url, public_registration, public_registration_verify_email, public_registration_role, public_registration_email_filter, visual_editor_urls, accepted_terms, project_id, mcp_enabled, mcp_allow_deletes, mcp_prompts_collection, mcp_system_prompt_enabled, mcp_system_prompt) FROM stdin;
@@ -1966,7 +2066,7 @@ COPY public.directus_settings (id, project_name, project_url, project_color, pro
 
 
 --
--- Data for Name: directus_shares; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_shares; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_shares (id, name, collection, item, role, password, user_created, date_created, date_start, date_end, times_used, max_uses) FROM stdin;
@@ -1974,7 +2074,7 @@ COPY public.directus_shares (id, name, collection, item, role, password, user_cr
 
 
 --
--- Data for Name: directus_translations; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_translations; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_translations (id, language, key, value) FROM stdin;
@@ -1982,16 +2082,16 @@ COPY public.directus_translations (id, language, key, value) FROM stdin;
 
 
 --
--- Data for Name: directus_users; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_users; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_users (id, first_name, last_name, email, password, location, title, description, tags, avatar, language, tfa_secret, status, role, token, last_access, last_page, provider, external_identifier, auth_data, email_notifications, appearance, theme_dark, theme_light, theme_light_overrides, theme_dark_overrides, text_direction) FROM stdin;
-a1c1617a-86f6-4f1b-9268-2920c0e77ecf	Admin	User	admin@faq.com	$argon2id$v=19$m=65536,t=3,p=4$u+av5J7RuuAvgwjMpN0pvg$XAclk0bKwOvH5wjX+jnp8XJiIdRvFuQYV2dG7ZlNbfM	\N	\N	\N	\N	\N	\N	\N	active	505a7445-0adb-41aa-a416-10556967532e	5hG7PhtOAdSsZsnyQGVBazM_qb1Hgpkl	2026-02-13 08:26:59.441+00	/content/faq_content	default	\N	\N	t	\N	\N	\N	\N	\N	auto
+a1c1617a-86f6-4f1b-9268-2920c0e77ecf	Admin	User	admin@faq.com	$argon2id$v=19$m=65536,t=3,p=4$u+av5J7RuuAvgwjMpN0pvg$XAclk0bKwOvH5wjX+jnp8XJiIdRvFuQYV2dG7ZlNbfM	\N	\N	\N	\N	\N	\N	\N	active	505a7445-0adb-41aa-a416-10556967532e	CybkfZi7a02TOHlsRuZXm9QYOx0r7y0s	2026-02-16 05:06:16.376+00	/settings/roles	default	\N	\N	t	\N	\N	\N	\N	\N	auto
 \.
 
 
 --
--- Data for Name: directus_versions; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_versions; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_versions (id, key, name, collection, item, hash, date_created, date_updated, user_created, user_updated, delta) FROM stdin;
@@ -1999,7 +2099,7 @@ COPY public.directus_versions (id, key, name, collection, item, hash, date_creat
 
 
 --
--- Data for Name: directus_webhooks; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: directus_webhooks; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.directus_webhooks (id, name, method, url, status, data, actions, collections, headers, was_active_before_deprecation, migrated_flow) FROM stdin;
@@ -2007,7 +2107,7 @@ COPY public.directus_webhooks (id, name, method, url, status, data, actions, col
 
 
 --
--- Data for Name: faq; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: faq; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.faq (id, question, answer_text, category, language, created_at, embedding, video) FROM stdin;
@@ -2027,7 +2127,7 @@ COPY public.faq (id, question, answer_text, category, language, created_at, embe
 
 
 --
--- Data for Name: faq_content; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: faq_content; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.faq_content (id, faq_id, language, question, answer_text, question_normalized, question_keywords, question_embedding, answer_embedding, created_at, video) FROM stdin;
@@ -2047,7 +2147,7 @@ COPY public.faq_content (id, faq_id, language, question, answer_text, question_n
 
 
 --
--- Data for Name: faq_tags; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: faq_tags; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.faq_tags (faq_id, tag_id) FROM stdin;
@@ -2055,7 +2155,7 @@ COPY public.faq_tags (faq_id, tag_id) FROM stdin;
 
 
 --
--- Data for Name: faq_v2; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: faq_v2; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.faq_v2 (id, category, created_at, updated_at, is_active, priority, view_count, click_count) FROM stdin;
@@ -2075,7 +2175,7 @@ COPY public.faq_v2 (id, category, created_at, updated_at, is_active, priority, v
 
 
 --
--- Data for Name: logs; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: logs; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.logs (id, telegram_id, question, matched_faq_id, confidence, created_at) FROM stdin;
@@ -2150,11 +2250,22 @@ COPY public.logs (id, telegram_id, question, matched_faq_id, confidence, created
 69	7349094119	Акцияны қалай сатып аламын?	6	0.49056929237476576	2026-02-12 13:16:47.60841+00
 70	1007077148	открыть второй счет во Freedom брокере	8	0.7352012176751888	2026-02-13 08:35:57.790374+00
 71	1007077148	как открыть второй счет во Freedom	8	0.77091362823086	2026-02-13 08:36:43.711979+00
+72	1007077148	привет	\N	1	2026-02-15 20:17:03.556072+00
+73	1007077148	привет	\N	0	2026-02-16 05:07:12.473495+00
+74	1007077148	как открыть второй счет во Freedom	\N	0	2026-02-16 05:07:24.436892+00
+75	1007077148	привет	\N	1	2026-02-16 05:14:06.523193+00
+76	1007077148	как открыть второй счет во Freedom	8	0.77091362823086	2026-02-16 05:14:16.892895+00
+77	1007077148	привет	\N	1	2026-02-16 05:28:08.860614+00
+78	1007077148	как открыть второй счет во Freedom	8	0.77091362823086	2026-02-16 05:28:16.902562+00
+79	1007077148	как открыть второй счет во Freedom	8	0.77091362823086	2026-02-16 05:39:33.949874+00
+80	1007077148	привет	\N	1	2026-02-16 06:04:13.082675+00
+81	1007077148	как открыть второй счет во Freedom	8	0.77091362823086	2026-02-16 06:04:21.494942+00
+82	1007077148	как открыть второй счет во Freedom	8	0.77091362823086	2026-02-16 06:07:22.546722+00
 \.
 
 
 --
--- Data for Name: query_analytics; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: query_analytics; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.query_analytics (id, user_id, query_original, query_normalized, language, detected_intent, top_faq_id, top_score, results_count, user_clicked_faq_id, user_satisfied, created_at) FROM stdin;
@@ -2162,7 +2273,7 @@ COPY public.query_analytics (id, user_id, query_original, query_normalized, lang
 
 
 --
--- Data for Name: search_cache; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: search_cache; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.search_cache (id, query_hash, language, query_normalized, faq_results, hit_count, last_used_at, created_at) FROM stdin;
@@ -2170,7 +2281,7 @@ COPY public.search_cache (id, query_hash, language, query_normalized, faq_result
 
 
 --
--- Data for Name: synonyms; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: synonyms; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.synonyms (id, language, term, synonyms, created_at) FROM stdin;
@@ -2184,7 +2295,7 @@ COPY public.synonyms (id, language, term, synonyms, created_at) FROM stdin;
 
 
 --
--- Data for Name: tags; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: tags; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.tags (id, name, category) FROM stdin;
@@ -2192,126 +2303,126 @@ COPY public.tags (id, name, category) FROM stdin;
 
 
 --
--- Name: directus_activity_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: directus_activity_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.directus_activity_id_seq', 114, true);
+SELECT pg_catalog.setval('public.directus_activity_id_seq', 125, true);
 
 
 --
--- Name: directus_fields_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: directus_fields_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.directus_fields_id_seq', 63, true);
 
 
 --
--- Name: directus_notifications_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: directus_notifications_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.directus_notifications_id_seq', 1, false);
 
 
 --
--- Name: directus_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: directus_permissions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.directus_permissions_id_seq', 3, true);
-
-
---
--- Name: directus_presets_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.directus_presets_id_seq', 4, true);
+SELECT pg_catalog.setval('public.directus_permissions_id_seq', 5, true);
 
 
 --
--- Name: directus_relations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: directus_presets_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.directus_presets_id_seq', 5, true);
+
+
+--
+-- Name: directus_relations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.directus_relations_id_seq', 2, true);
 
 
 --
--- Name: directus_revisions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: directus_revisions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.directus_revisions_id_seq', 105, true);
+SELECT pg_catalog.setval('public.directus_revisions_id_seq', 112, true);
 
 
 --
--- Name: directus_settings_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: directus_settings_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.directus_settings_id_seq', 1, true);
 
 
 --
--- Name: directus_webhooks_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: directus_webhooks_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.directus_webhooks_id_seq', 1, false);
 
 
 --
--- Name: faq_content_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: faq_content_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.faq_content_id_seq', 12, true);
 
 
 --
--- Name: faq_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: faq_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.faq_id_seq', 12, true);
 
 
 --
--- Name: faq_v2_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: faq_v2_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.faq_v2_id_seq', 1, false);
 
 
 --
--- Name: logs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: logs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.logs_id_seq', 71, true);
+SELECT pg_catalog.setval('public.logs_id_seq', 82, true);
 
 
 --
--- Name: query_analytics_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: query_analytics_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.query_analytics_id_seq', 1, false);
 
 
 --
--- Name: search_cache_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: search_cache_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.search_cache_id_seq', 1, false);
 
 
 --
--- Name: synonyms_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: synonyms_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.synonyms_id_seq', 6, true);
 
 
 --
--- Name: tags_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Name: tags_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.tags_id_seq', 1, false);
 
 
 --
--- Name: directus_access directus_access_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_access directus_access_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_access
@@ -2319,7 +2430,7 @@ ALTER TABLE ONLY public.directus_access
 
 
 --
--- Name: directus_activity directus_activity_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_activity directus_activity_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_activity
@@ -2327,7 +2438,7 @@ ALTER TABLE ONLY public.directus_activity
 
 
 --
--- Name: directus_collections directus_collections_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_collections directus_collections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_collections
@@ -2335,7 +2446,7 @@ ALTER TABLE ONLY public.directus_collections
 
 
 --
--- Name: directus_comments directus_comments_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_comments directus_comments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_comments
@@ -2343,7 +2454,7 @@ ALTER TABLE ONLY public.directus_comments
 
 
 --
--- Name: directus_dashboards directus_dashboards_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_dashboards directus_dashboards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_dashboards
@@ -2351,7 +2462,7 @@ ALTER TABLE ONLY public.directus_dashboards
 
 
 --
--- Name: directus_extensions directus_extensions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_extensions directus_extensions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_extensions
@@ -2359,7 +2470,7 @@ ALTER TABLE ONLY public.directus_extensions
 
 
 --
--- Name: directus_fields directus_fields_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_fields directus_fields_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_fields
@@ -2367,7 +2478,7 @@ ALTER TABLE ONLY public.directus_fields
 
 
 --
--- Name: directus_files directus_files_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_files directus_files_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_files
@@ -2375,7 +2486,7 @@ ALTER TABLE ONLY public.directus_files
 
 
 --
--- Name: directus_flows directus_flows_operation_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_flows directus_flows_operation_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_flows
@@ -2383,7 +2494,7 @@ ALTER TABLE ONLY public.directus_flows
 
 
 --
--- Name: directus_flows directus_flows_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_flows directus_flows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_flows
@@ -2391,7 +2502,7 @@ ALTER TABLE ONLY public.directus_flows
 
 
 --
--- Name: directus_folders directus_folders_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_folders directus_folders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_folders
@@ -2399,7 +2510,7 @@ ALTER TABLE ONLY public.directus_folders
 
 
 --
--- Name: directus_migrations directus_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_migrations directus_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_migrations
@@ -2407,7 +2518,7 @@ ALTER TABLE ONLY public.directus_migrations
 
 
 --
--- Name: directus_notifications directus_notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_notifications directus_notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_notifications
@@ -2415,7 +2526,7 @@ ALTER TABLE ONLY public.directus_notifications
 
 
 --
--- Name: directus_operations directus_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_operations directus_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_operations
@@ -2423,7 +2534,7 @@ ALTER TABLE ONLY public.directus_operations
 
 
 --
--- Name: directus_operations directus_operations_reject_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_operations directus_operations_reject_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_operations
@@ -2431,7 +2542,7 @@ ALTER TABLE ONLY public.directus_operations
 
 
 --
--- Name: directus_operations directus_operations_resolve_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_operations directus_operations_resolve_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_operations
@@ -2439,7 +2550,7 @@ ALTER TABLE ONLY public.directus_operations
 
 
 --
--- Name: directus_panels directus_panels_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_panels directus_panels_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_panels
@@ -2447,7 +2558,7 @@ ALTER TABLE ONLY public.directus_panels
 
 
 --
--- Name: directus_permissions directus_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_permissions directus_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_permissions
@@ -2455,7 +2566,7 @@ ALTER TABLE ONLY public.directus_permissions
 
 
 --
--- Name: directus_policies directus_policies_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_policies directus_policies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_policies
@@ -2463,7 +2574,7 @@ ALTER TABLE ONLY public.directus_policies
 
 
 --
--- Name: directus_presets directus_presets_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_presets directus_presets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_presets
@@ -2471,7 +2582,7 @@ ALTER TABLE ONLY public.directus_presets
 
 
 --
--- Name: directus_relations directus_relations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_relations directus_relations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_relations
@@ -2479,7 +2590,7 @@ ALTER TABLE ONLY public.directus_relations
 
 
 --
--- Name: directus_revisions directus_revisions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_revisions directus_revisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_revisions
@@ -2487,7 +2598,7 @@ ALTER TABLE ONLY public.directus_revisions
 
 
 --
--- Name: directus_roles directus_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_roles directus_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_roles
@@ -2495,7 +2606,7 @@ ALTER TABLE ONLY public.directus_roles
 
 
 --
--- Name: directus_sessions directus_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_sessions directus_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_sessions
@@ -2503,7 +2614,7 @@ ALTER TABLE ONLY public.directus_sessions
 
 
 --
--- Name: directus_settings directus_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_settings directus_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_settings
@@ -2511,7 +2622,7 @@ ALTER TABLE ONLY public.directus_settings
 
 
 --
--- Name: directus_shares directus_shares_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_shares directus_shares_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_shares
@@ -2519,7 +2630,7 @@ ALTER TABLE ONLY public.directus_shares
 
 
 --
--- Name: directus_translations directus_translations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_translations directus_translations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_translations
@@ -2527,7 +2638,7 @@ ALTER TABLE ONLY public.directus_translations
 
 
 --
--- Name: directus_users directus_users_email_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_users directus_users_email_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_users
@@ -2535,7 +2646,7 @@ ALTER TABLE ONLY public.directus_users
 
 
 --
--- Name: directus_users directus_users_external_identifier_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_users directus_users_external_identifier_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_users
@@ -2543,7 +2654,7 @@ ALTER TABLE ONLY public.directus_users
 
 
 --
--- Name: directus_users directus_users_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_users directus_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_users
@@ -2551,7 +2662,7 @@ ALTER TABLE ONLY public.directus_users
 
 
 --
--- Name: directus_users directus_users_token_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_users directus_users_token_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_users
@@ -2559,7 +2670,7 @@ ALTER TABLE ONLY public.directus_users
 
 
 --
--- Name: directus_versions directus_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_versions directus_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_versions
@@ -2567,7 +2678,7 @@ ALTER TABLE ONLY public.directus_versions
 
 
 --
--- Name: directus_webhooks directus_webhooks_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_webhooks directus_webhooks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_webhooks
@@ -2575,7 +2686,7 @@ ALTER TABLE ONLY public.directus_webhooks
 
 
 --
--- Name: faq_content faq_content_faq_id_language_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faq_content faq_content_faq_id_language_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq_content
@@ -2583,7 +2694,7 @@ ALTER TABLE ONLY public.faq_content
 
 
 --
--- Name: faq_content faq_content_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faq_content faq_content_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq_content
@@ -2591,7 +2702,7 @@ ALTER TABLE ONLY public.faq_content
 
 
 --
--- Name: faq faq_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faq faq_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq
@@ -2599,7 +2710,7 @@ ALTER TABLE ONLY public.faq
 
 
 --
--- Name: faq_tags faq_tags_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faq_tags faq_tags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq_tags
@@ -2607,7 +2718,7 @@ ALTER TABLE ONLY public.faq_tags
 
 
 --
--- Name: faq_v2 faq_v2_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faq_v2 faq_v2_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq_v2
@@ -2615,7 +2726,7 @@ ALTER TABLE ONLY public.faq_v2
 
 
 --
--- Name: logs logs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -2623,7 +2734,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: query_analytics query_analytics_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: query_analytics query_analytics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.query_analytics
@@ -2631,7 +2742,7 @@ ALTER TABLE ONLY public.query_analytics
 
 
 --
--- Name: search_cache search_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: search_cache search_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.search_cache
@@ -2639,7 +2750,7 @@ ALTER TABLE ONLY public.search_cache
 
 
 --
--- Name: search_cache search_cache_query_hash_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: search_cache search_cache_query_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.search_cache
@@ -2647,7 +2758,7 @@ ALTER TABLE ONLY public.search_cache
 
 
 --
--- Name: synonyms synonyms_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: synonyms synonyms_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.synonyms
@@ -2655,7 +2766,7 @@ ALTER TABLE ONLY public.synonyms
 
 
 --
--- Name: tags tags_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: tags tags_name_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tags
@@ -2663,7 +2774,7 @@ ALTER TABLE ONLY public.tags
 
 
 --
--- Name: tags tags_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: tags tags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tags
@@ -2671,140 +2782,140 @@ ALTER TABLE ONLY public.tags
 
 
 --
--- Name: idx_faq_answer_embedding; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_faq_answer_embedding; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_faq_answer_embedding ON public.faq_content USING hnsw (answer_embedding public.vector_cosine_ops) WITH (m='16', ef_construction='64');
 
 
 --
--- Name: idx_faq_category; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_faq_category; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_faq_category ON public.faq USING btree (category);
 
 
 --
--- Name: idx_faq_category_language; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_faq_category_language; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_faq_category_language ON public.faq USING btree (category, language);
 
 
 --
--- Name: idx_faq_content_faq_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_faq_content_faq_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_faq_content_faq_id ON public.faq_content USING btree (faq_id);
 
 
 --
--- Name: idx_faq_content_keywords; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_faq_content_keywords; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_faq_content_keywords ON public.faq_content USING gin (question_keywords);
 
 
 --
--- Name: idx_faq_content_lang; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_faq_content_lang; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_faq_content_lang ON public.faq_content USING btree (language);
 
 
 --
--- Name: idx_faq_created_at; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_faq_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_faq_created_at ON public.faq USING btree (created_at DESC);
 
 
 --
--- Name: idx_faq_embedding; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_faq_embedding; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_faq_embedding ON public.faq USING ivfflat (embedding public.vector_cosine_ops);
 
 
 --
--- Name: idx_faq_language; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_faq_language; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_faq_language ON public.faq USING btree (language);
 
 
 --
--- Name: idx_faq_question_embedding; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_faq_question_embedding; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_faq_question_embedding ON public.faq_content USING hnsw (question_embedding public.vector_cosine_ops) WITH (m='16', ef_construction='64');
 
 
 --
--- Name: idx_logs_created_at; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_created_at ON public.logs USING btree (created_at DESC);
 
 
 --
--- Name: idx_logs_faq_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_faq_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_faq_id ON public.logs USING btree (matched_faq_id) WHERE (matched_faq_id IS NOT NULL);
 
 
 --
--- Name: idx_logs_telegram_created; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_telegram_created; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_telegram_created ON public.logs USING btree (telegram_id, created_at DESC);
 
 
 --
--- Name: idx_logs_telegram_id; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_logs_telegram_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_logs_telegram_id ON public.logs USING btree (telegram_id);
 
 
 --
--- Name: idx_query_analytics_created; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_query_analytics_created; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_query_analytics_created ON public.query_analytics USING btree (created_at DESC);
 
 
 --
--- Name: idx_query_analytics_user; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_query_analytics_user; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_query_analytics_user ON public.query_analytics USING btree (user_id, created_at DESC);
 
 
 --
--- Name: idx_search_cache_hash; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_search_cache_hash; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_search_cache_hash ON public.search_cache USING btree (query_hash);
 
 
 --
--- Name: idx_search_cache_last_used; Type: INDEX; Schema: public; Owner: postgres
+-- Name: idx_search_cache_last_used; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_search_cache_last_used ON public.search_cache USING btree (last_used_at DESC);
 
 
 --
--- Name: faq_v2 faq_v2_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: faq_v2 faq_v2_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER faq_v2_updated_at BEFORE UPDATE ON public.faq_v2 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 
 --
--- Name: directus_access directus_access_policy_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_access directus_access_policy_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_access
@@ -2812,7 +2923,7 @@ ALTER TABLE ONLY public.directus_access
 
 
 --
--- Name: directus_access directus_access_role_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_access directus_access_role_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_access
@@ -2820,7 +2931,7 @@ ALTER TABLE ONLY public.directus_access
 
 
 --
--- Name: directus_access directus_access_user_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_access directus_access_user_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_access
@@ -2828,7 +2939,7 @@ ALTER TABLE ONLY public.directus_access
 
 
 --
--- Name: directus_collections directus_collections_group_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_collections directus_collections_group_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_collections
@@ -2836,7 +2947,7 @@ ALTER TABLE ONLY public.directus_collections
 
 
 --
--- Name: directus_comments directus_comments_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_comments directus_comments_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_comments
@@ -2844,7 +2955,7 @@ ALTER TABLE ONLY public.directus_comments
 
 
 --
--- Name: directus_comments directus_comments_user_updated_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_comments directus_comments_user_updated_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_comments
@@ -2852,7 +2963,7 @@ ALTER TABLE ONLY public.directus_comments
 
 
 --
--- Name: directus_dashboards directus_dashboards_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_dashboards directus_dashboards_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_dashboards
@@ -2860,7 +2971,7 @@ ALTER TABLE ONLY public.directus_dashboards
 
 
 --
--- Name: directus_files directus_files_folder_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_files directus_files_folder_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_files
@@ -2868,7 +2979,7 @@ ALTER TABLE ONLY public.directus_files
 
 
 --
--- Name: directus_files directus_files_modified_by_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_files directus_files_modified_by_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_files
@@ -2876,7 +2987,7 @@ ALTER TABLE ONLY public.directus_files
 
 
 --
--- Name: directus_files directus_files_uploaded_by_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_files directus_files_uploaded_by_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_files
@@ -2884,7 +2995,7 @@ ALTER TABLE ONLY public.directus_files
 
 
 --
--- Name: directus_flows directus_flows_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_flows directus_flows_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_flows
@@ -2892,7 +3003,7 @@ ALTER TABLE ONLY public.directus_flows
 
 
 --
--- Name: directus_folders directus_folders_parent_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_folders directus_folders_parent_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_folders
@@ -2900,7 +3011,7 @@ ALTER TABLE ONLY public.directus_folders
 
 
 --
--- Name: directus_notifications directus_notifications_recipient_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_notifications directus_notifications_recipient_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_notifications
@@ -2908,7 +3019,7 @@ ALTER TABLE ONLY public.directus_notifications
 
 
 --
--- Name: directus_notifications directus_notifications_sender_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_notifications directus_notifications_sender_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_notifications
@@ -2916,7 +3027,7 @@ ALTER TABLE ONLY public.directus_notifications
 
 
 --
--- Name: directus_operations directus_operations_flow_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_operations directus_operations_flow_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_operations
@@ -2924,7 +3035,7 @@ ALTER TABLE ONLY public.directus_operations
 
 
 --
--- Name: directus_operations directus_operations_reject_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_operations directus_operations_reject_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_operations
@@ -2932,7 +3043,7 @@ ALTER TABLE ONLY public.directus_operations
 
 
 --
--- Name: directus_operations directus_operations_resolve_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_operations directus_operations_resolve_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_operations
@@ -2940,7 +3051,7 @@ ALTER TABLE ONLY public.directus_operations
 
 
 --
--- Name: directus_operations directus_operations_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_operations directus_operations_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_operations
@@ -2948,7 +3059,7 @@ ALTER TABLE ONLY public.directus_operations
 
 
 --
--- Name: directus_panels directus_panels_dashboard_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_panels directus_panels_dashboard_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_panels
@@ -2956,7 +3067,7 @@ ALTER TABLE ONLY public.directus_panels
 
 
 --
--- Name: directus_panels directus_panels_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_panels directus_panels_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_panels
@@ -2964,7 +3075,7 @@ ALTER TABLE ONLY public.directus_panels
 
 
 --
--- Name: directus_permissions directus_permissions_policy_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_permissions directus_permissions_policy_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_permissions
@@ -2972,7 +3083,7 @@ ALTER TABLE ONLY public.directus_permissions
 
 
 --
--- Name: directus_presets directus_presets_role_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_presets directus_presets_role_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_presets
@@ -2980,7 +3091,7 @@ ALTER TABLE ONLY public.directus_presets
 
 
 --
--- Name: directus_presets directus_presets_user_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_presets directus_presets_user_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_presets
@@ -2988,7 +3099,7 @@ ALTER TABLE ONLY public.directus_presets
 
 
 --
--- Name: directus_revisions directus_revisions_activity_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_revisions directus_revisions_activity_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_revisions
@@ -2996,7 +3107,7 @@ ALTER TABLE ONLY public.directus_revisions
 
 
 --
--- Name: directus_revisions directus_revisions_parent_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_revisions directus_revisions_parent_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_revisions
@@ -3004,7 +3115,7 @@ ALTER TABLE ONLY public.directus_revisions
 
 
 --
--- Name: directus_revisions directus_revisions_version_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_revisions directus_revisions_version_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_revisions
@@ -3012,7 +3123,7 @@ ALTER TABLE ONLY public.directus_revisions
 
 
 --
--- Name: directus_roles directus_roles_parent_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_roles directus_roles_parent_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_roles
@@ -3020,7 +3131,7 @@ ALTER TABLE ONLY public.directus_roles
 
 
 --
--- Name: directus_sessions directus_sessions_share_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_sessions directus_sessions_share_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_sessions
@@ -3028,7 +3139,7 @@ ALTER TABLE ONLY public.directus_sessions
 
 
 --
--- Name: directus_sessions directus_sessions_user_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_sessions directus_sessions_user_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_sessions
@@ -3036,7 +3147,7 @@ ALTER TABLE ONLY public.directus_sessions
 
 
 --
--- Name: directus_settings directus_settings_project_logo_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_settings directus_settings_project_logo_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_settings
@@ -3044,7 +3155,7 @@ ALTER TABLE ONLY public.directus_settings
 
 
 --
--- Name: directus_settings directus_settings_public_background_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_settings directus_settings_public_background_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_settings
@@ -3052,7 +3163,7 @@ ALTER TABLE ONLY public.directus_settings
 
 
 --
--- Name: directus_settings directus_settings_public_favicon_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_settings directus_settings_public_favicon_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_settings
@@ -3060,7 +3171,7 @@ ALTER TABLE ONLY public.directus_settings
 
 
 --
--- Name: directus_settings directus_settings_public_foreground_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_settings directus_settings_public_foreground_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_settings
@@ -3068,7 +3179,7 @@ ALTER TABLE ONLY public.directus_settings
 
 
 --
--- Name: directus_settings directus_settings_public_registration_role_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_settings directus_settings_public_registration_role_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_settings
@@ -3076,7 +3187,7 @@ ALTER TABLE ONLY public.directus_settings
 
 
 --
--- Name: directus_settings directus_settings_storage_default_folder_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_settings directus_settings_storage_default_folder_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_settings
@@ -3084,7 +3195,7 @@ ALTER TABLE ONLY public.directus_settings
 
 
 --
--- Name: directus_shares directus_shares_collection_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_shares directus_shares_collection_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_shares
@@ -3092,7 +3203,7 @@ ALTER TABLE ONLY public.directus_shares
 
 
 --
--- Name: directus_shares directus_shares_role_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_shares directus_shares_role_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_shares
@@ -3100,7 +3211,7 @@ ALTER TABLE ONLY public.directus_shares
 
 
 --
--- Name: directus_shares directus_shares_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_shares directus_shares_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_shares
@@ -3108,7 +3219,7 @@ ALTER TABLE ONLY public.directus_shares
 
 
 --
--- Name: directus_users directus_users_role_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_users directus_users_role_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_users
@@ -3116,7 +3227,7 @@ ALTER TABLE ONLY public.directus_users
 
 
 --
--- Name: directus_versions directus_versions_collection_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_versions directus_versions_collection_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_versions
@@ -3124,7 +3235,7 @@ ALTER TABLE ONLY public.directus_versions
 
 
 --
--- Name: directus_versions directus_versions_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_versions directus_versions_user_created_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_versions
@@ -3132,7 +3243,7 @@ ALTER TABLE ONLY public.directus_versions
 
 
 --
--- Name: directus_versions directus_versions_user_updated_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_versions directus_versions_user_updated_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_versions
@@ -3140,7 +3251,7 @@ ALTER TABLE ONLY public.directus_versions
 
 
 --
--- Name: directus_webhooks directus_webhooks_migrated_flow_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: directus_webhooks directus_webhooks_migrated_flow_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.directus_webhooks
@@ -3148,7 +3259,7 @@ ALTER TABLE ONLY public.directus_webhooks
 
 
 --
--- Name: faq_content faq_content_faq_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faq_content faq_content_faq_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq_content
@@ -3156,7 +3267,7 @@ ALTER TABLE ONLY public.faq_content
 
 
 --
--- Name: faq_content faq_content_video_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faq_content faq_content_video_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq_content
@@ -3164,7 +3275,7 @@ ALTER TABLE ONLY public.faq_content
 
 
 --
--- Name: faq_tags faq_tags_faq_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faq_tags faq_tags_faq_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq_tags
@@ -3172,7 +3283,7 @@ ALTER TABLE ONLY public.faq_tags
 
 
 --
--- Name: faq_tags faq_tags_tag_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faq_tags faq_tags_tag_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq_tags
@@ -3180,7 +3291,7 @@ ALTER TABLE ONLY public.faq_tags
 
 
 --
--- Name: faq faq_video_foreign; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: faq faq_video_foreign; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.faq
@@ -3188,7 +3299,7 @@ ALTER TABLE ONLY public.faq
 
 
 --
--- Name: logs logs_matched_faq_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: logs logs_matched_faq_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.logs
@@ -3196,7 +3307,7 @@ ALTER TABLE ONLY public.logs
 
 
 --
--- Name: query_analytics query_analytics_top_faq_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: query_analytics query_analytics_top_faq_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.query_analytics
@@ -3204,7 +3315,7 @@ ALTER TABLE ONLY public.query_analytics
 
 
 --
--- Name: query_analytics query_analytics_user_clicked_faq_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: query_analytics query_analytics_user_clicked_faq_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.query_analytics
@@ -3215,5 +3326,5 @@ ALTER TABLE ONLY public.query_analytics
 -- PostgreSQL database dump complete
 --
 
-\unrestrict TQfHbV7kaGmK3cHFLV0kugGPc907gxg2twqjVTEdENddwGlxeIEx45JJ30kmqcm
+\unrestrict zyOfh6EIMgepeN94TgTaf3B8bnMraHvNpTS5OYboVGSBQY3UaSCi5oiksQhaEj5
 
