@@ -114,7 +114,7 @@ services:
     image: directus/directus:latest
     container_name: faq_directus
     ports:
-      - "127.0.0.1:8054:8055"  # ✅ Только через Nginx
+      - "127.0.0.1:8055:8055"  # ✅ Только через Nginx
     environment:
       KEY: ${DIRECTUS_KEY}
       SECRET: ${DIRECTUS_SECRET}
