@@ -152,6 +152,7 @@ services:
       
     volumes:
       - directus_uploads:/directus/uploads
+      - /root/index.js:/directus/node_modules/.pnpm/@directus+storage-driver-s3@file+packages+storage-driver-s3/node_modules/@directus/storage-driver-s3/dist/index.js
     depends_on:
       postgres:
         condition: service_healthy
