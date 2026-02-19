@@ -10,6 +10,7 @@ from app.ai.gpt_service import GPTService
 from app.ai.embeddings_enhanced import EmbeddingService
 from app.ai.search_enhanced import EnhancedSearchService
 from app.ai.language_detector import LanguageDetector
+from app.ai.intent_router import IntentRouter
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -19,18 +20,42 @@ GREETING_WORDS = {
     'добрый', 'здравствуй', 'сәлеметсіз', 'қайырлы'
 }
 
-# Короткие общие запросы — сразу уточняем (Сценарий 2)
 VAGUE_WORDS = {
     'дивиденды', 'карта', 'счет', 'счёт', 'акции', 'деньги',
     'помощь', 'помоги', 'вопрос', 'информация', 'как',
     'дивидендтер', 'карточка', 'шот', 'акциялар', 'ақша', 'көмек'
 }
 
+# Явно нежелательные слова — сразу off_topic без GPT
+EXPLICIT_OFF_TOPIC = {
+    # 18+
+    'секс', 'порно', 'эротика', 'xxx', '18+', 'интим',
+    # Детское
+    'мультфильм', 'детское', 'балалар', 'бала', 'ребёнок', 'дети',
+    'игрушка', 'сказка', 'мультик',
+    # Еда/быт
+    'рецепт', 'готовить', 'еда', 'ресторан',
+    # Погода
+    'погода', 'температура', 'дождь', 'снег',
+    # Спорт
+    'футбол', 'баскетбол', 'спорт', 'матч',
+    # Политика
+    'президент', 'выборы', 'партия', 'война',
+    # Медицина
+    'лечение', 'болезнь', 'врач', 'таблетки',
+}
+
 
 def classify_intent_fast(text: str) -> str:
     lower = text.lower().strip()
+
+    # Явный off-topic — мгновенный отказ
+    if any(w in lower for w in EXPLICIT_OFF_TOPIC):
+        return 'off_topic'
+
     if any(w in lower for w in GREETING_WORDS) and len(lower) < 40:
         return 'greeting'
+
     return 'faq'
 
 
@@ -57,7 +82,7 @@ async def ask_question(
     request: AskRequest,
     session: AsyncSession = Depends(get_session)
 ):
-    language = "ru"  # дефолт для блока except
+    language = "ru"
 
     try:
         # 1. Language detection
@@ -68,11 +93,21 @@ async def ask_question(
 
         logger.info(f"🔍 Question: '{request.question}' | Lang: {language}")
 
-        # 2. Fast intent
+        # 2. Fast intent (включает явный off-topic)
         intent = classify_intent_fast(request.question)
-        logger.info(f"🎯 Intent: {intent}")
+        logger.info(f"🎯 Fast intent: {intent}")
 
         gpt_service = GPTService()
+
+        # === OFF_TOPIC — мгновенный отказ без GPT ===
+        if intent == 'off_topic':
+            logger.info("🚫 Off-topic detected, returning strict refusal")
+            return AskResponse(
+                action="no_match",
+                question=request.question,
+                message=gpt_service.get_off_topic_response(language),
+                confidence=0.0
+            )
 
         # === GREETING ===
         if intent == "greeting":
@@ -136,9 +171,25 @@ async def ask_question(
             limit=10
         )
 
+        # === Дополнительная GPT-проверка на off_topic если fast check не поймал ===
+        # Делаем только если результаты поиска слабые (score < 0.30)
+        if not faqs_with_scores or faqs_with_scores[0][1] < 0.30:
+            intent_router = IntentRouter()
+            gpt_intent = intent_router.detect_intent(request.question, language)
+            logger.info(f"🤖 GPT intent check: {gpt_intent}")
+
+            if gpt_intent.get("intent") == "off_topic":
+                logger.info("🚫 GPT confirmed off-topic")
+                return AskResponse(
+                    action="no_match",
+                    question=request.question,
+                    message=gpt_service.get_off_topic_response(language),
+                    confidence=0.0
+                )
+
         # === СЦЕНАРИЙ 3: контент не найден ===
         if not faqs_with_scores:
-            logger.info("❌ No results found, showing available topics")
+            logger.info("❌ No results found")
             response_text = await gpt_service.generate_no_match_response(
                 user_question=request.question,
                 language=language
@@ -155,9 +206,9 @@ async def ask_question(
 
         logger.info(f"📊 Best score: {best_score:.3f} | FAQ: {best_faq['question'][:50]}")
 
-        # === СЦЕНАРИЙ 4: уверенное совпадение — текст + видео + disclaimer ===
+        # === СЦЕНАРИЙ 4: уверенное совпадение ===
         if best_score >= 0.40:
-            logger.info(f"✅ HIGH confidence (Сценарий 4): {best_score:.3f}")
+            logger.info(f"✅ HIGH confidence: {best_score:.3f}")
             return AskResponse(
                 action="direct_answer",
                 question=request.question,
@@ -175,7 +226,7 @@ async def ask_question(
             ]
 
             if len(close_matches) >= 2:
-                logger.info(f"🤔 Multiple close matches (Сценарий 1): {len(close_matches)} options")
+                logger.info(f"🤔 Multiple matches: {len(close_matches)} options")
                 clarification = await gpt_service.generate_clarification_question(
                     user_question=request.question,
                     similar_faqs=close_matches,
@@ -189,7 +240,6 @@ async def ask_question(
                     suggestions=[faq['question'] for faq, _ in close_matches[:4]]
                 )
             else:
-                # Одно medium совпадение — GPT синтез на основе контекста
                 logger.info(f"🤔 Single MEDIUM match: {best_score:.3f}")
                 answer = await gpt_service.generate_answer_from_faqs(
                     user_question=request.question,
@@ -210,7 +260,7 @@ async def ask_question(
                     suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
                 )
 
-        # LOW confidence (0.10-0.20) — уточняющий вопрос
+        # LOW confidence (0.10-0.20)
         elif best_score >= 0.10:
             logger.info(f"📋 LOW confidence: {best_score:.3f}")
             clarification = await gpt_service.generate_clarification_question(
@@ -226,7 +276,7 @@ async def ask_question(
                 suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
             )
 
-        # VERY LOW (< 0.10) — нет ответа, показываем темы
+        # VERY LOW (< 0.10)
         else:
             logger.info(f"❌ VERY LOW confidence: {best_score:.3f}")
             response_text = await gpt_service.generate_no_match_response(
