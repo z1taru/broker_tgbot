@@ -19,13 +19,32 @@ GREETING_WORDS = {
     'добрый', 'здравствуй', 'сәлеметсіз', 'қайырлы'
 }
 
+# Короткие общие запросы — сразу уточняем (Сценарий 2)
+VAGUE_WORDS = {
+    'дивиденды', 'карта', 'счет', 'счёт', 'акции', 'деньги',
+    'помощь', 'помоги', 'вопрос', 'информация', 'как',
+    'дивидендтер', 'карточка', 'шот', 'акциялар', 'ақша', 'көмек'
+}
+
+
 def classify_intent_fast(text: str) -> str:
     lower = text.lower().strip()
     if any(w in lower for w in GREETING_WORDS) and len(lower) < 40:
         return 'greeting'
     return 'faq'
 
+
+def is_vague_query(text: str) -> bool:
+    """Сценарий 2: запрос слишком короткий или общий"""
+    lower = text.lower().strip()
+    words = lower.split()
+    if len(words) <= 2 and any(w in lower for w in VAGUE_WORDS):
+        return True
+    return False
+
+
 def build_answer_text(faq: dict) -> str:
+    """Собирает финальный текст с disclaimer"""
     answer = faq['answer_text']
     footer = faq.get('description_footer')
     if footer and footer.strip():
@@ -38,6 +57,8 @@ async def ask_question(
     request: AskRequest,
     session: AsyncSession = Depends(get_session)
 ):
+    language = "ru"  # дефолт для блока except
+
     try:
         # 1. Language detection
         language = request.language
@@ -60,7 +81,6 @@ async def ask_question(
                 intent="greeting",
                 language=language
             )
-
             if language == "kk":
                 response_text += "\n\n💡 Мысалы:\n• Шот қалай ашамыз?\n• Облигация қалай аламыз?\n• Валюта айырбасы"
             else:
@@ -73,7 +93,37 @@ async def ask_question(
                 confidence=1.0
             )
 
-        # === FAQ ===
+        # === СЦЕНАРИЙ 2: слишком общий запрос ===
+        if is_vague_query(request.question):
+            logger.info("🔎 Vague query detected, requesting clarification")
+
+            embedding_service = EmbeddingService()
+            query_embedding = await embedding_service.create_embedding(request.question)
+
+            search_service = EnhancedSearchService()
+            faqs_with_scores = await search_service.hybrid_search(
+                session=session,
+                query_embedding=query_embedding,
+                query_text=request.question,
+                language=language,
+                limit=4
+            )
+
+            clarification = await gpt_service.generate_clarification_question(
+                user_question=request.question,
+                similar_faqs=faqs_with_scores,
+                language=language
+            )
+
+            return AskResponse(
+                action="clarify",
+                question=request.question,
+                message=clarification,
+                confidence=0.5,
+                suggestions=[faq['question'] for faq, _ in faqs_with_scores[:4]]
+            )
+
+        # === FAQ — векторный поиск ===
         embedding_service = EmbeddingService()
         query_embedding = await embedding_service.create_embedding(request.question)
 
@@ -86,12 +136,13 @@ async def ask_question(
             limit=10
         )
 
+        # === СЦЕНАРИЙ 3: контент не найден ===
         if not faqs_with_scores:
-            if language == "kk":
-                response_text = "Кешіріңіз, бұл тақырып бойынша ақпарат таба алмадым 🤔\n\n📞 Куратор қызметі: 10:00-20:00"
-            else:
-                response_text = "Извините, не нашёл информацию по этому вопросу 🤔\n\n📞 Служба куратора: 10:00-20:00"
-
+            logger.info("❌ No results found, showing available topics")
+            response_text = await gpt_service.generate_no_match_response(
+                user_question=request.question,
+                language=language
+            )
             return AskResponse(
                 action="no_match",
                 question=request.question,
@@ -104,9 +155,9 @@ async def ask_question(
 
         logger.info(f"📊 Best score: {best_score:.3f} | FAQ: {best_faq['question'][:50]}")
 
-        # HIGH confidence (>= 0.40)
+        # === СЦЕНАРИЙ 4: уверенное совпадение — текст + видео + disclaimer ===
         if best_score >= 0.40:
-            logger.info(f"✅ HIGH confidence: {best_score:.3f}")
+            logger.info(f"✅ HIGH confidence (Сценарий 4): {best_score:.3f}")
             return AskResponse(
                 action="direct_answer",
                 question=request.question,
@@ -116,40 +167,57 @@ async def ask_question(
                 confidence=best_score
             )
 
-        # MEDIUM confidence (0.20-0.40)
+        # === СЦЕНАРИЙ 1: несколько близких совпадений — уточняем ===
         elif best_score >= 0.20:
-            logger.info(f"🤔 MEDIUM confidence: {best_score:.3f}")
-            answer = await gpt_service.generate_answer_from_faqs(
-                user_question=request.question,
-                matched_faqs=faqs_with_scores[:3],
-                language=language
-            )
-            footer = best_faq.get('description_footer')
-            if footer and footer.strip():
-                answer = f"{answer}\n\n<i>{footer}</i>"
+            close_matches = [
+                (faq, score) for faq, score in faqs_with_scores[:5]
+                if score >= best_score * 0.80
+            ]
 
-            return AskResponse(
-                action="direct_answer",
-                question=request.question,
-                answer_text=answer,
-                video_url=best_faq.get('video_url'),
-                faq_id=best_faq['id'],
-                confidence=best_score,
-                suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
-            )
+            if len(close_matches) >= 2:
+                logger.info(f"🤔 Multiple close matches (Сценарий 1): {len(close_matches)} options")
+                clarification = await gpt_service.generate_clarification_question(
+                    user_question=request.question,
+                    similar_faqs=close_matches,
+                    language=language
+                )
+                return AskResponse(
+                    action="clarify",
+                    question=request.question,
+                    message=clarification,
+                    confidence=best_score,
+                    suggestions=[faq['question'] for faq, _ in close_matches[:4]]
+                )
+            else:
+                # Одно medium совпадение — GPT синтез на основе контекста
+                logger.info(f"🤔 Single MEDIUM match: {best_score:.3f}")
+                answer = await gpt_service.generate_answer_from_faqs(
+                    user_question=request.question,
+                    matched_faqs=faqs_with_scores[:3],
+                    language=language
+                )
+                footer = best_faq.get('description_footer')
+                if footer and footer.strip():
+                    answer = f"{answer}\n\n<i>{footer}</i>"
 
-        # LOW confidence (0.10-0.20)
+                return AskResponse(
+                    action="direct_answer",
+                    question=request.question,
+                    answer_text=answer,
+                    video_url=best_faq.get('video_url'),
+                    faq_id=best_faq['id'],
+                    confidence=best_score,
+                    suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
+                )
+
+        # LOW confidence (0.10-0.20) — уточняющий вопрос
         elif best_score >= 0.10:
             logger.info(f"📋 LOW confidence: {best_score:.3f}")
-            options = '\n'.join(
-                f"{i}. {faq['question']}"
-                for i, (faq, _) in enumerate(faqs_with_scores[:3], 1)
+            clarification = await gpt_service.generate_clarification_question(
+                user_question=request.question,
+                similar_faqs=faqs_with_scores[:3],
+                language=language
             )
-            if language == "kk":
-                clarification = f"Қайсысы сізге жақынырақ? 🤔\n\n{options}\n\n💬 Санын жазыңыз немесе нақтылаңыз"
-            else:
-                clarification = f"Какой из этих вопросов ближе к вашему? 🤔\n\n{options}\n\n💬 Напишите номер или уточните вопрос"
-
             return AskResponse(
                 action="clarify",
                 question=request.question,
@@ -158,14 +226,13 @@ async def ask_question(
                 suggestions=[faq['question'] for faq, _ in faqs_with_scores[:3]]
             )
 
-        # VERY LOW (< 0.10)
+        # VERY LOW (< 0.10) — нет ответа, показываем темы
         else:
             logger.info(f"❌ VERY LOW confidence: {best_score:.3f}")
-            if language == "kk":
-                response_text = "Кешіріңіз, жауап таба алмадым 🤔\n\nСұрағыңызды басқаша қойып көріңіз немесе куратор қызметіне жазыңыз.\n📞 10:00-20:00"
-            else:
-                response_text = "Извините, не нашёл ответа на ваш вопрос 🤔\n\nПопробуйте переформулировать или напишите куратору.\n📞 10:00-20:00"
-
+            response_text = await gpt_service.generate_no_match_response(
+                user_question=request.question,
+                language=language
+            )
             return AskResponse(
                 action="no_match",
                 question=request.question,
