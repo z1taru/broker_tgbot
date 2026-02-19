@@ -26,11 +26,10 @@ def classify_intent_fast(text: str) -> str:
     return 'faq'
 
 def build_answer_text(faq: dict) -> str:
-    """Собирает финальный текст ответа с disclaimer если есть"""
     answer = faq['answer_text']
     footer = faq.get('description_footer')
     if footer and footer.strip():
-        answer = f"{answer}\n\n_{footer}_"
+        answer = f"{answer}\n\n<i>{footer}</i>"
     return answer
 
 
@@ -127,7 +126,7 @@ async def ask_question(
             )
             footer = best_faq.get('description_footer')
             if footer and footer.strip():
-                answer = f"{answer}\n\n_{footer}_"
+                answer = f"{answer}\n\n<i>{footer}</i>"
 
             return AskResponse(
                 action="direct_answer",
