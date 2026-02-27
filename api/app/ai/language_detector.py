@@ -6,17 +6,32 @@ logger = get_logger(__name__)
 class LanguageDetector:
     def detect(self, text: str) -> str:
         """
-        Simple language detection for Kazakh and Russian
-        Returns: 'kk' for Kazakh, 'ru' for Russian
+        Тіл анықтау: қазақша немесе орысша.
+        Әдепкі: 'kk' (Kazakh-first policy)
         """
         kazakh_chars = set('әіңғүұқөһӘІҢҒҮҰҚӨҺ')
-        
-        text_chars = set(text.lower())
-        kazakh_count = len(text_chars & kazakh_chars)
-        
-        if kazakh_count > 0:
+
+        # Қазақ символдары бар ма?
+        if any(c in kazakh_chars for c in text):
             logger.info("Detected language: Kazakh")
             return "kk"
-        else:
+
+        # Орыс тіліне тән маркерлер
+        russian_markers = set('ёъ')
+        russian_words = {
+            'как', 'что', 'это', 'для', 'или', 'все', 'при', 'где',
+            'когда', 'почему', 'зачем', 'нет', 'да', 'ещё', 'уже',
+            'можно', 'нельзя', 'хочу', 'нужно', 'буду', 'есть'
+        }
+
+        has_russian_marker = any(c in russian_markers for c in text.lower())
+        words = set(text.lower().split())
+        has_russian_words = len(words & russian_words) >= 2
+
+        if has_russian_marker or has_russian_words:
             logger.info("Detected language: Russian")
             return "ru"
+
+        # Әдепкі — қазақша
+        logger.info("Language unclear, defaulting to Kazakh (kk)")
+        return "kk"
