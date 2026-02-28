@@ -15,17 +15,13 @@ class EnhancedSearchService:
         if not video_file_id:
             return None
         video_file_id = str(video_file_id).strip()
-        if not video_file_id or video_file_id == 'None':
+        if not video_file_id or video_file_id == "None":
             return None
-        base_url = settings.DIRECTUS_PUBLIC_URL.rstrip('/')
+        base_url = settings.DIRECTUS_PUBLIC_URL.rstrip("/")
         return f"{base_url}/assets/{video_file_id}"
 
     @staticmethod
     def _deduplicate_by_faq_id(rows: list) -> list:
-        """
-        Дедупликация по faq_id — один faq_id = одна запись (первая по score).
-        Решает проблему когда на одну тему несколько faq_content с разными видео.
-        """
         seen = set()
         result = []
         for row in rows:
@@ -38,14 +34,35 @@ class EnhancedSearchService:
         return result
 
     @staticmethod
+    def _rows_to_candidates(rows: list, score_col: int = 8) -> List[Tuple[Dict[str, Any], float]]:
+        """Конвертирует строки БД в список (faq_dict, score)."""
+        candidates = []
+        for row in rows:
+            faq_id = row[0]
+            video_url = EnhancedSearchService._build_video_url(row[3])
+            if row[3]:
+                logger.debug(f"FAQ {faq_id}: video_file_id={row[3]}")
+            faq = {
+                "id": faq_id,
+                "question": row[1],
+                "answer_text": row[2],
+                "video_url": video_url,
+                "category": row[4],
+                "language": row[5],
+                "created_at": row[6],
+                "description_footer": row[7] if len(row) > 7 else None,
+            }
+            candidates.append((faq, float(row[score_col])))
+        return candidates
+
+    @staticmethod
     async def find_similar_faqs(
         session: AsyncSession,
         query_embedding: List[float],
         language: str,
-        limit: int = 10
-    ):
-        embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
-        # Берём больше строк до дедупликации
+        limit: int = 10,
+    ) -> list:
+        embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
         fetch_limit = limit * 3
 
         sql = text("""
@@ -53,12 +70,12 @@ class EnhancedSearchService:
                 faq_v2.id,
                 faq_content.question,
                 faq_content.answer_text,
-                faq_content.video as video_file_id,
+                faq_content.video          AS video_file_id,
                 faq_v2.category,
                 faq_content.language,
                 faq_v2.created_at,
                 faq_content.description_footer,
-                1 - (faq_content.question_embedding <=> CAST(:embedding AS vector)) as similarity
+                1 - (faq_content.question_embedding <=> CAST(:embedding AS vector)) AS similarity
             FROM faq_content
             INNER JOIN faq_v2 ON faq_content.faq_id = faq_v2.id
             WHERE faq_content.language = :language
@@ -70,11 +87,11 @@ class EnhancedSearchService:
 
         result = await session.execute(
             sql,
-            {"embedding": embedding_str, "language": language, "limit": fetch_limit}
+            {"embedding": embedding_str, "language": language, "limit": fetch_limit},
         )
         rows = result.fetchall()
         deduped = EnhancedSearchService._deduplicate_by_faq_id(rows)
-        logger.info(f"Vector search: {len(rows)} rows → {len(deduped)} after dedup")
+        logger.info(f"Vector search (lang={language}): {len(rows)} rows → {len(deduped)} after dedup")
         return deduped[:limit]
 
     @staticmethod
@@ -82,8 +99,8 @@ class EnhancedSearchService:
         session: AsyncSession,
         query_text: str,
         language: str,
-        limit: int = 10
-    ) -> List[Tuple]:
+        limit: int = 10,
+    ) -> list:
         fetch_limit = limit * 3
 
         sql = text("""
@@ -91,20 +108,21 @@ class EnhancedSearchService:
                 faq_v2.id,
                 faq_content.question,
                 faq_content.answer_text,
-                faq_content.video as video_file_id,
+                faq_content.video          AS video_file_id,
                 faq_v2.category,
                 faq_content.language,
                 faq_v2.created_at,
+                faq_content.description_footer,
                 ts_rank(
                     to_tsvector('simple', faq_content.question || ' ' || faq_content.answer_text),
                     plainto_tsquery('simple', :query)
-                ) as relevance
+                ) AS relevance
             FROM faq_content
             INNER JOIN faq_v2 ON faq_content.faq_id = faq_v2.id
             WHERE faq_content.language = :language
               AND faq_v2.is_active = TRUE
               AND (
-                  faq_content.question ILIKE :pattern
+                  faq_content.question   ILIKE :pattern
                   OR faq_content.answer_text ILIKE :pattern
               )
             ORDER BY relevance DESC
@@ -113,22 +131,21 @@ class EnhancedSearchService:
 
         result = await session.execute(
             sql,
-            {"query": query_text, "pattern": f"%{query_text}%",
-             "language": language, "limit": fetch_limit}
+            {"query": query_text, "pattern": f"%{query_text}%", "language": language, "limit": fetch_limit},
         )
         rows = result.fetchall()
         deduped = EnhancedSearchService._deduplicate_by_faq_id(rows)
-        logger.info(f"Keyword search: {len(rows)} rows → {len(deduped)} after dedup")
+        logger.info(f"Keyword search (lang={language}): {len(rows)} rows → {len(deduped)} after dedup")
         return deduped[:limit]
 
     @staticmethod
     async def get_synonyms(session: AsyncSession, language: str, query: str) -> List[str]:
         try:
             sql = text("""
-                SELECT DISTINCT UNNEST(synonyms) as synonym
+                SELECT DISTINCT UNNEST(synonyms) AS synonym
                 FROM synonyms
                 WHERE language = :language
-                AND (term ILIKE :query OR :query ILIKE '%' || term || '%')
+                  AND (term ILIKE :query OR :query ILIKE '%' || term || '%')
             """)
             result = await session.execute(sql, {"language": language, "query": f"%{query}%"})
             return [row[0] for row in result.fetchall()]
@@ -158,20 +175,25 @@ class EnhancedSearchService:
         query_hash: str,
         query_normalized: str,
         language: str,
-        results: List[Dict]
-    ):
+        results: List[Dict],
+    ) -> None:
         try:
-            import json
+            import json as _json
             sql = text("""
                 INSERT INTO search_cache (query_hash, query_normalized, language, faq_results)
                 VALUES (:hash, :normalized, :language, :results::jsonb)
                 ON CONFLICT (query_hash)
                 DO UPDATE SET hit_count = search_cache.hit_count + 1, last_used_at = NOW()
             """)
-            await session.execute(sql, {
-                "hash": query_hash, "normalized": query_normalized,
-                "language": language, "results": json.dumps(results)
-            })
+            await session.execute(
+                sql,
+                {
+                    "hash": query_hash,
+                    "normalized": query_normalized,
+                    "language": language,
+                    "results": _json.dumps(results),
+                },
+            )
         except Exception as e:
             logger.warning(f"Cache save failed: {e}")
 
@@ -181,58 +203,79 @@ class EnhancedSearchService:
         query_embedding: List[float],
         query_text: str,
         language: str,
-        limit: int = 10
+        limit: int = 10,
     ) -> List[Tuple[Dict[str, Any], float]]:
+        """
+        Hybrid vector + keyword search.
+
+        Language fallback: если kk даёт 0 результатов — пробуем ru.
+        Это решает проблему когда контент залит только на ru но с language='ru',
+        а пользователь пишет на казахском.
+        """
+        # ── Vector search ────────────────────────────────────────────────────
         rows = await EnhancedSearchService.find_similar_faqs(
             session, query_embedding, language, limit
         )
 
-        candidates = []
-        seen_ids = set()
+        # ── Language fallback kk → ru ─────────────────────────────────────
+        fallback_used = False
+        if not rows and language == "kk":
+            logger.warning("[Search] No kk results, falling back to ru")
+            rows = await EnhancedSearchService.find_similar_faqs(
+                session, query_embedding, "ru", limit
+            )
+            fallback_used = True
+
+        candidates: List[Tuple[Dict[str, Any], float]] = []
+        seen_ids: set = set()
 
         for row in rows:
             faq_id = row[0]
             video_url = EnhancedSearchService._build_video_url(row[3])
-
             if row[3]:
-                logger.info(f"FAQ {faq_id}: video_file_id={row[3]}")
-
+                logger.debug(f"FAQ {faq_id}: video_file_id={row[3]}")
             faq = {
-                'id': faq_id,
-                'question': row[1],
-                'answer_text': row[2],
-                'video_url': video_url,
-                'category': row[4],
-                'language': row[5],
-                'created_at': row[6],
-                'description_footer': row[7],
+                "id": faq_id,
+                "question": row[1],
+                "answer_text": row[2],
+                "video_url": video_url,
+                "category": row[4],
+                "language": row[5],
+                "created_at": row[6],
+                "description_footer": row[7] if len(row) > 7 else None,
             }
             candidates.append((faq, float(row[8])))
             seen_ids.add(faq_id)
 
-        # Keyword fallback если vector слабый
-        if not candidates or candidates[0][1] < 0.5:
-            logger.info("Vector weak, trying keyword fallback")
+        # ── Keyword fallback (всегда дополняем) ──────────────────────────────
+        kw_lang = "ru" if fallback_used else language
+        kw_rows = await EnhancedSearchService.keyword_search(
+            session, query_text, kw_lang, limit
+        )
+
+        # Keyword fallback на ru если kw_lang=kk и нет результатов
+        if not kw_rows and kw_lang == "kk":
             kw_rows = await EnhancedSearchService.keyword_search(
-                session, query_text, language, limit
+                session, query_text, "ru", limit
             )
-            for row in kw_rows:
-                faq_id = row[0]
-                if faq_id in seen_ids:
-                    continue
-                video_url = EnhancedSearchService._build_video_url(row[3])
-                faq = {
-                    'id': faq_id,
-                    'question': row[1],
-                    'answer_text': row[2],
-                    'video_url': video_url,
-                    'category': row[4],
-                    'language': row[5],
-                    'created_at': row[6],
-                    'description_footer': None,
-                }
-                candidates.append((faq, float(row[7]) * 0.8))
-                seen_ids.add(faq_id)
+
+        for row in kw_rows:
+            faq_id = row[0]
+            if faq_id in seen_ids:
+                continue
+            video_url = EnhancedSearchService._build_video_url(row[3])
+            faq = {
+                "id": faq_id,
+                "question": row[1],
+                "answer_text": row[2],
+                "video_url": video_url,
+                "category": row[4],
+                "language": row[5],
+                "created_at": row[6],
+                "description_footer": row[7] if len(row) > 7 else None,
+            }
+            candidates.append((faq, float(row[8]) * 0.7))
+            seen_ids.add(faq_id)
 
         candidates.sort(key=lambda x: x[1], reverse=True)
         return candidates[:limit]
@@ -241,6 +284,6 @@ class EnhancedSearchService:
     async def rerank_with_gpt(
         user_question: str,
         candidates: List[Tuple[Dict, float]],
-        top_k: int = 3
+        top_k: int = 3,
     ) -> List[Tuple[Dict, float]]:
         return candidates[:top_k]

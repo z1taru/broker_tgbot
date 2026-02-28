@@ -1,3 +1,4 @@
+# api/app/ai/gpt_service.py
 from typing import List, Tuple, Dict, Any
 from openai import OpenAI
 from app.config import settings
@@ -11,11 +12,13 @@ class GPTService:
         self.client = OpenAI()
         self.model = "gpt-4o-mini"
 
+    # ── System prompts ────────────────────────────────────────────────────────
+
     def _get_base_system_prompt(self, language: str) -> str:
         if language == "kk":
             return """Сіз — инвестициялық брокерлік Telegram-боттың AI-көмекшісісіз.
 
-МАҢЫЗДЫ: Барлық жауаптарды ТЕК ҚАЗАҚ ТІЛІНДЕ жаз. Орысша жазуға тыйым салынған.
+МАҢЫЗДЫ: Барлық жауаптарды ТЕК ҚАЗАҚ ТІЛІНДЕ жаз.
 
 ҚАТАҢ ШЕКТЕУЛЕР:
 1. Тек мына тақырыптар бойынша жауап бер:
@@ -65,6 +68,8 @@ class GPTService:
 4. Если тема НЕ брокерская:
    "Я отвечаю только на вопросы об инвестициях и брокерских услугах." """
 
+    # ── Off-topic response ────────────────────────────────────────────────────
+
     def get_off_topic_response(self, language: str) -> str:
         if language == "kk":
             return (
@@ -87,103 +92,100 @@ class GPTService:
                 "Если есть вопрос об инвестициях — спрашивайте! 📊"
             )
 
+    # ── Greeting ──────────────────────────────────────────────────────────────
+
     async def generate_persona_response(
         self,
         user_question: str,
         intent: str,
         language: str,
-        context: Dict = None
+        context: Dict = None,
     ) -> str:
         system_prompt = self._get_base_system_prompt(language)
 
         if language == "kk":
-            user_prompt = f"""Пайдаланушы жазды: "{user_question}"
-Intent: {intent}
-
-МІНДЕТТІ: Тек қазақша жауап бер. Орысша жазуға болмайды.
-Достық тонмен қысқа жауап бер (2-3 сөйлем).
-Не істей алатыныңды түсіндір — тек инвестиция/брокер тақырыптары.
-Мысал сұрақтар ұсын (тек брокерлік тақырыптан)."""
+            user_prompt = (
+                f'Пайдаланушы жазды: "{user_question}"\n'
+                f"Intent: {intent}\n\n"
+                "МІНДЕТТІ: Тек қазақша жауап бер.\n"
+                "Достық тонмен қысқа жауап бер (2-3 сөйлем).\n"
+                "Не істей алатыныңды түсіндір — тек инвестиция/брокер тақырыптары.\n"
+                "Мысал сұрақтар ұсын (тек брокерлік тақырыптан)."
+            )
         else:
-            user_prompt = f"""Пользователь написал: "{user_question}"
-Intent: {intent}
-
-ОБЯЗАТЕЛЬНО: Отвечай только на русском языке.
-Ответь дружелюбно и кратко (2-3 предложения).
-Объясни что умеешь — только инвестиции и брокерские услуги.
-Предложи примеры вопросов (только по брокерской теме)."""
+            user_prompt = (
+                f'Пользователь написал: "{user_question}"\n'
+                f"Intent: {intent}\n\n"
+                "ОБЯЗАТЕЛЬНО: Отвечай только на русском языке.\n"
+                "Ответь дружелюбно и кратко (2-3 предложения).\n"
+                "Объясни что умеешь — только инвестиции и брокерские услуги.\n"
+                "Предложи примеры вопросов (только по брокерской теме)."
+            )
 
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             temperature=0.3,
-            max_tokens=300
+            max_tokens=300,
         )
         return response.choices[0].message.content.strip()
+
+    # ── Clarification question ────────────────────────────────────────────────
 
     async def generate_clarification_question(
         self,
         user_question: str,
         similar_faqs: List[Tuple[Dict, float]],
-        language: str
+        language: str,
     ) -> str:
-        """
-        Уточняющий вопрос.
-        ИСПРАВЛЕНО: явное требование языка + фолбэк-шаблон если GPT ответил не на том языке.
-        """
-        faq_options = []
-        for i, (faq, score) in enumerate(similar_faqs[:4], 1):
-            faq_options.append(f"{i}. {faq['question']}")
-        options_text = "\n".join(faq_options)
-
+        faq_options = "\n".join(
+            f"{i}. {faq['question']}"
+            for i, (faq, _) in enumerate(similar_faqs[:4], 1)
+        )
         system_prompt = self._get_base_system_prompt(language)
 
         if language == "kk":
-            user_prompt = f"""Пайдаланушы сұрады: "{user_question}"
-
-Табылған нұсқалар:
-{options_text}
-
-МІНДЕТТІ: Жауабыңды ТЕК ҚАЗАҚ ТІЛІНДЕ жаз. Орысша жазуға тыйым салынған.
-Нақтылаушы сұрақ қой қазақша. Нұсқаларды нөмірмен тізіп жаз.
-Максималды 2 сөйлем."""
+            user_prompt = (
+                f'Пайдаланушы сұрады: "{user_question}"\n\n'
+                f"Табылған нұсқалар:\n{faq_options}\n\n"
+                "МІНДЕТТІ: Жауабыңды ТЕК ҚАЗАҚ ТІЛІНДЕ жаз.\n"
+                "Нақтылаушы сұрақ қой қазақша. Нұсқаларды нөмірмен тізіп жаз.\n"
+                "Максималды 2 сөйлем."
+            )
         else:
-            user_prompt = f"""Пользователь спросил: "{user_question}"
-
-Найденные варианты:
-{options_text}
-
-ОБЯЗАТЕЛЬНО: Пиши ответ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.
-Задай уточняющий вопрос. Перечисли варианты с номерами.
-Максимум 2 предложения."""
+            user_prompt = (
+                f'Пользователь спросил: "{user_question}"\n\n'
+                f"Найденные варианты:\n{faq_options}\n\n"
+                "ОБЯЗАТЕЛЬНО: Пиши ответ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.\n"
+                "Задай уточняющий вопрос. Перечисли варианты с номерами.\n"
+                "Максимум 2 предложения."
+            )
 
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             temperature=0.2,
-            max_tokens=250
+            max_tokens=250,
         )
         result = response.choices[0].message.content.strip()
 
-        # Фолбэк: если GPT ответил не на казахском — шаблон
+        # Fallback если GPT ответил не на казахском
         if language == "kk" and not self._has_kazakh_chars(result):
-            logger.warning("GPT returned non-Kazakh clarification, using template")
+            logger.warning("[GPTService] GPT returned non-Kazakh clarification, using template")
             result = self._clarification_template_kk(similar_faqs)
 
         return result
 
     def _has_kazakh_chars(self, text: str) -> bool:
-        kazakh_chars = set('әіңғүұқөһӘІҢҒҮҰҚӨҺ')
-        kazakh_words = {'сіз', 'мен', 'бұл', 'қалай', 'және', 'немесе'}
-        has_chars = any(c in kazakh_chars for c in text)
-        has_words = any(w in text.lower() for w in kazakh_words)
-        return has_chars or has_words
+        kazakh_chars = set("әіңғүұқөһӘІҢҒҮҰҚӨҺ")
+        kazakh_words = {"сіз", "мен", "бұл", "қалай", "және", "немесе"}
+        return any(c in kazakh_chars for c in text) or any(w in text.lower() for w in kazakh_words)
 
     def _clarification_template_kk(self, similar_faqs: List[Tuple[Dict, float]]) -> str:
         options = "\n".join(
@@ -192,10 +194,12 @@ Intent: {intent}
         )
         return f"Сіз нені білгіңіз келеді?\n\n{options}"
 
+    # ── No-match response ─────────────────────────────────────────────────────
+
     async def generate_no_match_response(
         self,
         user_question: str,
-        language: str
+        language: str,
     ) -> str:
         if language == "kk":
             return (
@@ -224,11 +228,13 @@ Intent: {intent}
                 "Задайте вопрос по одной из этих тем 📊"
             )
 
+    # ── Answer from FAQs ──────────────────────────────────────────────────────
+
     async def generate_answer_from_faqs(
         self,
         user_question: str,
         matched_faqs: List[Tuple[Dict, float]],
-        language: str
+        language: str,
     ) -> str:
         context = ""
         for i, (faq, score) in enumerate(matched_faqs[:3], 1):
@@ -237,31 +243,29 @@ Intent: {intent}
         system_prompt = self._get_base_system_prompt(language)
 
         if language == "kk":
-            user_prompt = f"""Пайдаланушының сұрағы: "{user_question}"
-
-FAQ контексті:
-{context}
-
-МІНДЕТТІ: Жауабыңды ТЕК ҚАЗАҚ ТІЛІНДЕ жаз.
-ТЕК осы контекст негізінде жауап жаса. Ештеңе ойлап шығарма.
-Қысқа және нақты. Контекст сәйкес келмесе — "Нақтырақ сұрақ қойыңыз" деп жаз."""
+            user_prompt = (
+                f'Пайдаланушының сұрағы: "{user_question}"\n\n'
+                f"FAQ контексті:\n{context}\n\n"
+                "МІНДЕТТІ: Жауабыңды ТЕК ҚАЗАҚ ТІЛІНДЕ жаз.\n"
+                "ТЕК осы контекст негізінде жауап жаса. Ештеңе ойлап шығарма.\n"
+                "Қысқа және нақты. Контекст сәйкес келмесе — 'Нақтырақ сұрақ қойыңыз' деп жаз."
+            )
         else:
-            user_prompt = f"""Вопрос пользователя: "{user_question}"
-
-Контекст из FAQ:
-{context}
-
-ОБЯЗАТЕЛЬНО: Отвечай только на русском языке.
-Сформируй ответ СТРОГО на основе контекста. Ничего не придумывай.
-Коротко и конкретно. Если контекст не подходит — напиши "Уточните вопрос"."""
+            user_prompt = (
+                f'Вопрос пользователя: "{user_question}"\n\n'
+                f"Контекст из FAQ:\n{context}\n\n"
+                "ОБЯЗАТЕЛЬНО: Отвечай только на русском языке.\n"
+                "Сформируй ответ СТРОГО на основе контекста. Ничего не придумывай.\n"
+                "Коротко и конкретно. Если контекст не подходит — напиши 'Уточните вопрос'."
+            )
 
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             temperature=0.2,
-            max_tokens=400
+            max_tokens=400,
         )
         return response.choices[0].message.content.strip()
