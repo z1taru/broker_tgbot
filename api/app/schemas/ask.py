@@ -1,6 +1,6 @@
 # api/app/schemas/ask.py
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 
 class AskRequest(BaseModel):
@@ -12,16 +12,19 @@ class AskRequest(BaseModel):
 class AskResponse(BaseModel):
     action: str  # "direct_answer" | "clarify" | "show_similar" | "no_match"
     question: str
-    
+
+    # Язык определённый LLM classifier — бот использует его для UI
+    detected_language: Optional[Literal["ru", "kk"]] = "kk"
+
     # Для прямого ответа
     answer_text: Optional[str] = None
     video_url: Optional[str] = None
     faq_id: Optional[int] = None
-    
+
     # Для других сценариев
     message: Optional[str] = None
-    
-    # НОВОЕ: список предложений (для UI)
+
+    # Список предложений для clarify/show_similar
     suggestions: Optional[List[str]] = None
-    
+
     confidence: float
