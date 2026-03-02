@@ -10,6 +10,8 @@ from datetime import datetime
 
 from app.config import settings
 from app.services.ai_client import AIClient
+from app.services.clarify_state import set_pending, get_pending
+from app.keyboards.clarify import build_clarify_keyboard, build_clarify_header
 from app.core.database import get_session_maker
 from app.models.database import Log
 
@@ -20,53 +22,30 @@ CURATOR_CHAT_ID = os.getenv("CURATOR_TELEGRAM_ID", "YOUR_CURATOR_ID")
 
 
 def _ui_language(text: str) -> str:
-    """
-    Язык ТОЛЬКО для UI-сообщений (индикатор "Ищу...").
-    Настоящий язык ответа берётся из API response.
-
-    Логика: казахский если есть спецсимволы ИЛИ казахские контекстные слова.
-    Default: kk.
-    """
-    kazakh_chars = set("әіңғүұқөһӘІҢҒҮҰҚӨҺ")
-    if any(c in kazakh_chars for c in text):
+    kk_chars = set("әіңғүұқөһӘІҢҒҮҰҚӨҺ")
+    if any(c in kk_chars for c in text):
         return "kk"
-
-    # Казахские слова без спецсимволов
-    kk_context = {
-        "деген", "туралы", "керек", "болады", "айтшы",
-        "алу", "беру", "ашу", "сату", "және", "немесе",
-        "аламын", "беремін",
-    }
-    lower_words = set(text.lower().split())
-    if lower_words & kk_context:
+    kk_words = {"деген", "туралы", "керек", "болады", "айтшы",
+                 "алу", "беру", "ашу", "сату", "және", "немесе"}
+    if set(text.lower().split()) & kk_words:
         return "kk"
-
-    # Казахские падежные окончания (-да, -нан, -ға и т.д.)
     kk_suffixes = ("да", "де", "та", "те", "дан", "ден", "тан", "тен",
-                   "нан", "нен", "ға", "ге", "қа", "ке", "лар", "лер",
-                   "дар", "дер", "тар", "тер")
+                   "нан", "нен", "ға", "ге", "қа", "ке",
+                   "лар", "лер", "дар", "дер", "тар", "тер")
     for word in text.lower().split():
-        for suffix in kk_suffixes:
-            if word.endswith(suffix) and len(word) > len(suffix) + 2:
+        for s in kk_suffixes:
+            if word.endswith(s) and len(word) > len(s) + 2:
                 return "kk"
-
-    # Явно русский
-    ru_markers = set("ёъ")
     ru_words = {"как", "что", "это", "для", "или", "где", "нет", "да", "можно", "хочу"}
-    if any(c in ru_markers for c in text.lower()):
-        return "ru"
     if len(set(text.lower().split()) & ru_words) >= 2:
         return "ru"
-
-    return "kk"  # default — казахский
+    return "kk"
 
 
 @router.message(F.text & ~F.text.startswith("/"))
 async def handle_text_message(message: Message, state: FSMContext):
     user_id = str(message.from_user.id)
     question = message.text
-
-    # Язык только для индикатора загрузки
     ui_lang = _ui_language(question)
 
     if ui_lang == "kk":
@@ -74,10 +53,7 @@ async def handle_text_message(message: Message, state: FSMContext):
     else:
         searching_msg = await message.answer("🔍 Ищу ответ...")
 
-    logger.info(f"[MSG] ui_lang={ui_lang} | '{question[:60]}'")
-
     ai_client = AIClient()
-    # Всегда отправляем language="auto" — LLM classifier в API определит язык по контексту
     response = await ai_client.ask_question(
         question=question,
         user_id=user_id,
@@ -90,22 +66,18 @@ async def handle_text_message(message: Message, state: FSMContext):
         pass
 
     if not response:
-        err = "Кешіріңіз, қате орын алды 🔄" if ui_lang == "kk" else "Извините, ошибка. Попробуйте ещё раз 🔄"
+        err = "Кешіріңіз, қате орын алды 🔄" if ui_lang == "kk" else "Извините, ошибка 🔄"
         await message.answer(err)
         return
 
     action = response.get("action")
     confidence = response.get("confidence", 0.0)
+    language = response.get("detected_language", ui_lang)
 
-    # Язык ответа берём из API (он определён LLM classifier-ом)
-    # Если API не вернул — fallback на ui_lang
-    response_language = response.get("detected_language", ui_lang)
+    logger.info(f"[MSG] action={action} conf={confidence:.3f} lang={language} user={user_id}")
 
-    logger.info(f"[MSG] action={action} conf={confidence:.3f} lang={response_language}")
-
-    # ── ПРЯМОЙ ОТВЕТ ──────────────────────────────────────────────────────────
     if action == "direct_answer":
-        await send_faq_answer(message, response, response_language)
+        await send_faq_answer(message, response, language)
         await log_user_action(
             telegram_id=user_id,
             question=question,
@@ -113,48 +85,33 @@ async def handle_text_message(message: Message, state: FSMContext):
             confidence=confidence,
         )
 
-    # ── УТОЧНЕНИЕ ─────────────────────────────────────────────────────────────
-    elif action == "clarify":
+    elif action in ("clarify", "show_similar"):
         suggestions = response.get("suggestions", [])
-        message_text = response.get("message", "")
+        faq_ids = response.get("suggestion_ids", [])
 
-        if suggestions:
-            if response_language == "kk":
-                header = "📋 Мүмкін сіз мынаны білгіңіз келеді:\n\n"
-                footer = "\n💬 Сұрағыңызды нақтырақ қойыңыз"
-            else:
-                header = "📋 Возможно, вы хотели узнать:\n\n"
-                footer = "\n💬 Уточните ваш вопрос"
+        options = []
+        for i, title in enumerate(suggestions[:4]):
+            options.append({
+                "index": i,
+                "title": title,
+                "faq_id": faq_ids[i] if i < len(faq_ids) else None,
+            })
 
-            opts = "".join(f"{i}. {s}\n" for i, s in enumerate(suggestions[:4], 1))
-            await message.answer(header + opts + footer)
-        else:
-            fallback = "Сұрақты нақтылаңыз" if response_language == "kk" else "Уточните вопрос"
-            await message.answer(message_text or fallback)
-
-        await log_user_action(
-            telegram_id=user_id,
-            question=question,
-            matched_faq_id=None,
-            confidence=confidence,
-        )
-
-    # ── ПОХОЖИЕ ───────────────────────────────────────────────────────────────
-    elif action == "show_similar":
-        suggestions = response.get("suggestions", [])
-        if suggestions:
-            if response_language == "kk":
-                header = "📋 Ұқсас сұрақтар:\n\n"
-                footer = "\n💬 Қайталап сұраңыз немесе басқаша қойып көріңіз"
-            else:
-                header = "📋 Похожие вопросы:\n\n"
-                footer = "\n💬 Переспросите или сформулируйте иначе"
-
-            opts = "".join(f"{i}. {s}\n" for i, s in enumerate(suggestions[:4], 1))
-            await message.answer(header + opts + footer)
-        else:
-            fallback = "Басқаша қойып көріңіз" if response_language == "kk" else "Попробуйте переформулировать"
+        if not options:
+            fallback = "Сұрақты нақтылаңыз" if language == "kk" else "Уточните вопрос"
             await message.answer(response.get("message", fallback))
+            return
+
+        set_pending(
+            user_id=user_id,
+            options=options,
+            language=language,
+            original_query=question,
+        )
+
+        header = build_clarify_header(language, question)
+        keyboard = build_clarify_keyboard(options, language)
+        await message.answer(header, reply_markup=keyboard)
 
         await log_user_action(
             telegram_id=user_id,
@@ -163,9 +120,8 @@ async def handle_text_message(message: Message, state: FSMContext):
             confidence=confidence,
         )
 
-    # ── НЕТ ОТВЕТА ────────────────────────────────────────────────────────────
     else:
-        no_ans = "Кешіріңіз, жауап таба алмадым" if response_language == "kk" else "Извините, не нашёл ответа"
+        no_ans = "Кешіріңіз, жауап таба алмадым" if language == "kk" else "Извините, не нашёл ответа"
         await message.answer(response.get("message", no_ans))
         await send_to_curator(bot=message.bot, user=message.from_user, question=question)
         await log_user_action(
@@ -180,88 +136,65 @@ async def send_faq_answer(message: Message, response: dict, language: str = "kk"
     answer_text = response.get("answer_text", "")
     video_url = response.get("video_url")
 
-    logger.info(f"[SEND] video_url={video_url} lang={language}")
-
     if video_url:
         video_sent = False
         try:
             timeout = aiohttp.ClientTimeout(total=settings.VIDEO_DOWNLOAD_TIMEOUT, connect=30)
-            headers = {"User-Agent": "TelegramBot/1.0", "Accept": "*/*"}
-
-            async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(video_url) as resp:
-                    logger.info(f"[VIDEO] status={resp.status}")
                     if resp.status == 200:
-                        video_data = await resp.read()
-                        size_mb = len(video_data) / (1024 * 1024)
-                        logger.info(f"[VIDEO] size={size_mb:.2f}MB")
-
+                        data = await resp.read()
+                        size_mb = len(data) / (1024 * 1024)
                         if size_mb > settings.MAX_VIDEO_SIZE_MB:
-                            raise ValueError(f"Video {size_mb:.2f}MB exceeds limit")
-
+                            raise ValueError(f"Video {size_mb:.1f}MB > limit")
                         filename = video_url.split("/")[-1].split("?")[0]
                         if not filename.endswith((".mp4", ".mov", ".avi", ".webm")):
-                            filename = f"{filename}.mp4"
-
+                            filename += ".mp4"
                         await message.answer_video(
-                            video=BufferedInputFile(video_data, filename=filename),
+                            video=BufferedInputFile(data, filename=filename),
                             caption=f"💡 {answer_text}"[:1024],
                             supports_streaming=True,
                         )
                         video_sent = True
-                    elif resp.status == 403:
-                        logger.error("[VIDEO] 403 — check Directus public role permissions")
-                    elif resp.status == 404:
-                        logger.error(f"[VIDEO] 404 — not found: {video_url}")
                     else:
-                        logger.error(f"[VIDEO] failed status={resp.status}")
-
-        except asyncio.TimeoutError:
-            logger.error(f"[VIDEO] timeout after {settings.VIDEO_DOWNLOAD_TIMEOUT}s")
+                        logger.error(f"[VIDEO] status={resp.status}")
         except Exception as e:
-            logger.error(f"[VIDEO] error: {type(e).__name__}: {e}", exc_info=True)
+            logger.error(f"[VIDEO] error: {e}", exc_info=True)
 
         if not video_sent:
-            if language == "kk":
-                await message.answer(f"💡 {answer_text}\n\n⚠️ Видео уақытша қолжетімсіз.")
-            else:
-                await message.answer(f"💡 {answer_text}\n\n⚠️ Видео временно недоступно.")
+            suffix = "\n\n⚠️ Видео уақытша қолжетімсіз." if language == "kk" else "\n\n⚠️ Видео временно недоступно."
+            await message.answer(f"💡 {answer_text}{suffix}")
     else:
         await message.answer(f"💡 {answer_text}")
 
 
 async def send_to_curator(bot, user, question: str):
     try:
-        current_hour = datetime.now().hour
-        if 10 <= current_hour < 20:
-            text = (
-                f"🆘 НОВЫЙ ВОПРОС\n\n"
-                f"👤 {user.full_name} (@{user.username or 'no_username'})\n"
-                f"🆔 {user.id}\n"
-                f"📝 {question}\n"
-                f"⏰ {datetime.now().strftime('%H:%M:%S')}"
+        if 10 <= datetime.now().hour < 20:
+            await bot.send_message(
+                chat_id=CURATOR_CHAT_ID,
+                text=(
+                    f"🆘 НОВЫЙ ВОПРОС\n\n"
+                    f"👤 {user.full_name} (@{user.username or '-'})\n"
+                    f"🆔 {user.id}\n"
+                    f"📝 {question}\n"
+                    f"⏰ {datetime.now().strftime('%H:%M')}"
+                ),
             )
-            await bot.send_message(chat_id=CURATOR_CHAT_ID, text=text)
     except Exception as e:
-        logger.error(f"[CURATOR] failed: {e}")
+        logger.error(f"[CURATOR] {e}")
 
 
-async def log_user_action(
-    telegram_id: str,
-    question: str,
-    matched_faq_id,
-    confidence: float,
-):
+async def log_user_action(telegram_id, question, matched_faq_id, confidence):
     try:
         session_maker = get_session_maker()
         async with session_maker() as session:
-            log_entry = Log(
+            session.add(Log(
                 telegram_id=telegram_id,
                 question=question,
                 matched_faq_id=matched_faq_id,
                 confidence=confidence,
-            )
-            session.add(log_entry)
+            ))
             await session.commit()
     except Exception as e:
-        logger.error(f"[LOG] error: {e}")
+        logger.error(f"[LOG] {e}")

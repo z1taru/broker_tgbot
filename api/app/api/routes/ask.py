@@ -9,7 +9,7 @@ from app.core.logging_config import get_logger
 from app.ai.gpt_service import GPTService
 from app.ai.embeddings_enhanced import EmbeddingService
 from app.ai.search_enhanced import EnhancedSearchService
-from app.ai.llm_classifier import LLMClassifier, ClassificationResult
+from app.ai.llm_classifier import LLMClassifier
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -21,9 +21,31 @@ _embedding_service = EmbeddingService()
 def _build_answer_text(faq: dict) -> str:
     answer = faq["answer_text"]
     footer = faq.get("description_footer", "")
-    if footer and footer.strip():
+    if footer and str(footer).strip():
         answer = f"{answer}\n\n<i>{footer}</i>"
     return answer
+
+
+def _pick_clarify_options(faqs_with_scores: list, max_count: int = 4) -> tuple[list, list]:
+    """
+    Выбрать top-4 варианта с дедупликацией по тексту.
+    Возвращает (titles: list[str], faq_ids: list[int]).
+    """
+    seen: set[str] = set()
+    titles: list[str] = []
+    ids: list[int] = []
+
+    for faq, score in faqs_with_scores:
+        norm = faq["question"].lower().strip()
+        if norm in seen:
+            continue
+        seen.add(norm)
+        titles.append(faq["question"])
+        ids.append(faq["id"])
+        if len(titles) >= max_count:
+            break
+
+    return titles, ids
 
 
 @router.post("/ask", response_model=AskResponse)
@@ -34,11 +56,11 @@ async def ask_question(
     gpt = GPTService()
     search = EnhancedSearchService()
 
-    # ── Шаг 1: classify + embedding параллельно ───────────────────────────────
-    clf_task = asyncio.create_task(_classifier.classify(request.question))
-    emb_task = asyncio.create_task(_embedding_service.create_embedding(request.question))
-    clf, query_embedding = await asyncio.gather(clf_task, emb_task)
-
+    # Classify + embedding параллельно
+    clf, query_embedding = await asyncio.gather(
+        _classifier.classify(request.question),
+        _embedding_service.create_embedding(request.question),
+    )
     language = clf.language
 
     logger.info(
@@ -46,7 +68,7 @@ async def ask_question(
         f"lang={language} vague={clf.vague} intent={clf.intent} conf={clf.confidence:.2f}"
     )
 
-    # ── Off-topic ──────────────────────────────────────────────────────────────
+    # Off-topic
     if clf.intent == "off_topic":
         return AskResponse(
             action="no_match",
@@ -56,7 +78,7 @@ async def ask_question(
             confidence=0.0,
         )
 
-    # ── Greeting ───────────────────────────────────────────────────────────────
+    # Greeting
     if clf.intent == "greeting":
         text = await gpt.generate_persona_response(
             user_question=request.question,
@@ -75,14 +97,13 @@ async def ask_question(
             confidence=1.0,
         )
 
-    # ── Поиск ─────────────────────────────────────────────────────────────────
-    search_limit = 4 if clf.vague else 10
+    # Поиск (берём 8 с запасом для дедупа)
     faqs_with_scores = await search.hybrid_search(
         session=session,
         query_embedding=query_embedding,
         query_text=request.question,
         language=language,
-        limit=search_limit,
+        limit=8,
     )
 
     if not faqs_with_scores:
@@ -97,8 +118,9 @@ async def ask_question(
     best_faq, best_score = faqs_with_scores[0]
     logger.info(f"[ASK] best_score={best_score:.3f} | '{best_faq['question'][:50]}'")
 
-    # ── vague=true → уточнение ────────────────────────────────────────────────
+    # vague=true → всегда clarify с 4 вариантами
     if clf.vague:
+        titles, faq_ids = _pick_clarify_options(faqs_with_scores, max_count=4)
         clarification = await gpt.generate_clarification_question(
             user_question=request.question,
             similar_faqs=faqs_with_scores[:4],
@@ -110,12 +132,11 @@ async def ask_question(
             detected_language=language,
             message=clarification,
             confidence=best_score,
-            suggestions=[faq["question"] for faq, _ in faqs_with_scores[:4]],
+            suggestions=titles,
+            suggestion_ids=faq_ids,
         )
 
-    # ── vague=false → Decision по score ───────────────────────────────────────
-
-    # Высокий ≥ 0.40 → прямой ответ
+    # score >= 0.40 → прямой ответ
     if best_score >= 0.40:
         return AskResponse(
             action="direct_answer",
@@ -127,12 +148,13 @@ async def ask_question(
             confidence=best_score,
         )
 
-    # Средний 0.20–0.40
+    # score 0.20–0.40 → несколько близких?
     if best_score >= 0.20:
-        close = [(faq, s) for faq, s in faqs_with_scores[:5] if s >= best_score * 0.80]
+        close = [(f, s) for f, s in faqs_with_scores[:6] if s >= best_score * 0.80]
         if len(close) >= 2:
+            titles, faq_ids = _pick_clarify_options(close, max_count=4)
             clarification = await gpt.generate_clarification_question(
-                request.question, close, language
+                request.question, close[:4], language
             )
             return AskResponse(
                 action="clarify",
@@ -140,11 +162,12 @@ async def ask_question(
                 detected_language=language,
                 message=clarification,
                 confidence=best_score,
-                suggestions=[faq["question"] for faq, _ in close[:4]],
+                suggestions=titles,
+                suggestion_ids=faq_ids,
             )
         answer = await gpt.generate_answer_from_faqs(request.question, faqs_with_scores[:3], language)
         footer = best_faq.get("description_footer", "")
-        if footer and footer.strip():
+        if footer and str(footer).strip():
             answer = f"{answer}\n\n<i>{footer}</i>"
         return AskResponse(
             action="direct_answer",
@@ -156,10 +179,11 @@ async def ask_question(
             confidence=best_score,
         )
 
-    # Низкий 0.10–0.20
+    # score 0.10–0.20
     if best_score >= 0.10:
+        titles, faq_ids = _pick_clarify_options(faqs_with_scores[:4], max_count=4)
         clarification = await gpt.generate_clarification_question(
-            request.question, faqs_with_scores[:3], language
+            request.question, faqs_with_scores[:4], language
         )
         return AskResponse(
             action="clarify",
@@ -167,7 +191,8 @@ async def ask_question(
             detected_language=language,
             message=clarification,
             confidence=best_score,
-            suggestions=[faq["question"] for faq, _ in faqs_with_scores[:3]],
+            suggestions=titles,
+            suggestion_ids=faq_ids,
         )
 
     # < 0.10 → no_match

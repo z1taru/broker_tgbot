@@ -13,18 +13,17 @@ class AskResponse(BaseModel):
     action: str  # "direct_answer" | "clarify" | "show_similar" | "no_match"
     question: str
 
-    # Язык определённый LLM classifier — бот использует его для UI
+    # Язык определённый LLM classifier — бот использует для UI
     detected_language: Optional[Literal["ru", "kk"]] = "kk"
 
-    # Для прямого ответа
+    # Прямой ответ
     answer_text: Optional[str] = None
     video_url: Optional[str] = None
     faq_id: Optional[int] = None
 
-    # Для других сценариев
+    # Clarify / show_similar
     message: Optional[str] = None
-
-    # Список предложений для clarify/show_similar
-    suggestions: Optional[List[str]] = None
+    suggestions: Optional[List[str]] = None      # тексты вариантов (для отображения)
+    suggestion_ids: Optional[List[int]] = None   # faq_id для каждого варианта
 
     confidence: float
