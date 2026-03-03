@@ -10,7 +10,7 @@ from datetime import datetime
 
 from app.config import settings
 from app.services.ai_client import AIClient
-from app.services.clarify_state import set_pending, get_pending
+from app.services.clarify_state import set_pending, get_pending, clear, resolve_choice
 from app.keyboards.clarify import build_clarify_keyboard, build_clarify_header
 from app.core.database import get_session_maker
 from app.models.database import Log
@@ -48,6 +48,25 @@ async def handle_text_message(message: Message, state: FSMContext):
     question = message.text
     ui_lang = _ui_language(question)
 
+    # ─── Проверка pending clarify state ──────────────────────────────────────
+    # Если пользователь написал текст совпадающий с вариантом — обрабатываем как выбор
+    pending = get_pending(user_id)
+    if pending is not None:
+        option = resolve_choice(user_id, question)
+        if option is not None:
+            language = pending["language"]
+            logger.info(f"[MSG] Resolved as clarify choice: '{option['title'][:40]}'")
+            clear(user_id)
+            # Импортируем _deliver_option из clarify чтобы не дублировать логику
+            from app.handlers.clarify import _deliver_option
+            await _deliver_option(message, option, language, user_id)
+            return
+        else:
+            # Текст не совпал с вариантами — сбрасываем pending и обрабатываем как новый вопрос
+            logger.info(f"[MSG] Pending clarify cancelled — new question received")
+            clear(user_id)
+
+    # ─── Основная логика ─────────────────────────────────────────────────────
     if ui_lang == "kk":
         searching_msg = await message.answer("🔍 Іздеп жатырмын...")
     else:

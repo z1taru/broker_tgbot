@@ -5,12 +5,15 @@
 Отвечает за:
   - Inline-кнопки clarify:choose:N  и  clarify:other
   - Текстовый ввод "1"/"2"/"3"/"4" когда pending_clarify активен
+
+ВАЖНО: НЕТ handler F.text — он блокировал бы все сообщения в aiogram 3.x,
+потому что return из handler не передаёт управление дальше.
+Текстовые варианты (1-4 и точное совпадение) обрабатываются в message.py.
 """
 import logging
 
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
-from aiogram.fsm.context import FSMContext
 
 from app.services.clarify_state import get_pending, clear, resolve_choice
 from app.services.ai_client import AIClient
@@ -30,12 +33,8 @@ async def _deliver_option(
 ) -> None:
     """
     Доставить ответ по выбранному option.
-
     option = {"index": N, "title": "...", "faq_id": 123}
-
-    Запрашивает FAQ по faq_id через API и отдаёт direct_answer.
     """
-    # Определяем куда отправлять сообщение
     if isinstance(message_or_callback, CallbackQuery):
         send_target = message_or_callback.message
     else:
@@ -45,7 +44,6 @@ async def _deliver_option(
     title = option.get("title", "")
 
     if faq_id:
-        # Есть конкретный faq_id — запрашиваем напрямую
         ai_client = AIClient()
         response = await ai_client.ask_by_faq_id(faq_id=faq_id)
 
@@ -76,7 +74,6 @@ async def _deliver_option(
             confidence=response.get("confidence", 0.8),
         )
     else:
-        # Ответ не найден
         if language == "kk":
             await send_target.answer("💡 Бұл тақырып бойынша ақпарат табылмады. Басқаша қойып көріңіз.")
         else:
@@ -88,11 +85,10 @@ async def _deliver_option(
 @router.callback_query(F.data.startswith("clarify:"))
 async def handle_clarify_callback(callback: CallbackQuery):
     user_id = str(callback.from_user.id)
-    data = callback.data  # "clarify:choose:0" или "clarify:other"
+    data = callback.data
 
     state = get_pending(user_id)
     if state is None:
-        # State истёк или не был установлен
         await callback.answer("⏱ Сессия истекла. Задайте вопрос заново.", show_alert=True)
         try:
             await callback.message.delete()
@@ -133,10 +129,8 @@ async def handle_clarify_callback(callback: CallbackQuery):
         chosen = options[idx]
         logger.info(f"[Clarify] user={user_id} chose option {idx+1}: '{chosen['title'][:40]}'")
 
-        # Сбрасываем state ДО отправки ответа
         clear(user_id)
 
-        # Убираем кнопки с сообщения
         try:
             await callback.message.edit_reply_markup(reply_markup=None)
         except Exception:
@@ -147,12 +141,13 @@ async def handle_clarify_callback(callback: CallbackQuery):
 
 
 # ─── Обработчик текстового ввода "1"-"4" ──────────────────────────────────────
+# ТОЛЬКО цифры 1-4 — узкий фильтр, не перехватывает обычные сообщения
 
 @router.message(F.text.regexp(r'^[1-4]$|^[1️⃣2️⃣3️⃣4️⃣]$'))
 async def handle_digit_choice(message: Message):
     """
-    Перехватывает "1", "2", "3", "4" если есть pending clarify.
-    Если pending нет — пропускает дальше (не блокирует обычные сообщения).
+    Перехватывает ТОЛЬКО "1", "2", "3", "4" если есть pending clarify.
+    Узкий regexp — не блокирует обычные сообщения.
     """
     user_id = str(message.from_user.id)
     state = get_pending(user_id)
@@ -167,39 +162,6 @@ async def handle_digit_choice(message: Message):
 
     language = state["language"]
     logger.info(f"[Clarify] user={user_id} digit choice '{message.text}' → '{option['title'][:40]}'")
-
-    clear(user_id)
-    await _deliver_option(message, option, language, user_id)
-
-
-# ─── Обработчик точного совпадения с вариантом ────────────────────────────────
-
-@router.message(F.text)
-async def handle_text_as_clarify_choice(message: Message):
-    """
-    Если pending_clarify активен и текст совпадает с одним из вариантов
-    (пользователь скопировал) — обрабатываем как выбор.
-
-    Если не совпадает — пропускаем (идёт в основной message handler).
-
-    ВАЖНО: этот router должен быть зарегистрирован ПЕРЕД основным message handler.
-    """
-    user_id = str(message.from_user.id)
-    state = get_pending(user_id)
-
-    if state is None:
-        return  # нет pending — пропускаем
-
-    option = resolve_choice(user_id, message.text)
-    if option is None:
-        # Не распознан как выбор — сбрасываем pending и обрабатываем как новый вопрос
-        # Не делаем return — даём пройти в основной handler
-        # Но сначала сбрасываем чтобы не зациклиться
-        clear(user_id)
-        return
-
-    language = state["language"]
-    logger.info(f"[Clarify] user={user_id} text match → '{option['title'][:40]}'")
 
     clear(user_id)
     await _deliver_option(message, option, language, user_id)
