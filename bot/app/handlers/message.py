@@ -3,7 +3,6 @@ from aiogram import Router, F
 from aiogram.types import Message, BufferedInputFile
 from aiogram.fsm.context import FSMContext
 import aiohttp
-import asyncio
 import logging
 import os
 from datetime import datetime
@@ -11,7 +10,7 @@ from datetime import datetime
 from app.config import settings
 from app.services.ai_client import AIClient
 from app.services.clarify_state import set_pending, get_pending, clear, resolve_choice
-from app.keyboards.clarify import build_clarify_keyboard, build_clarify_header
+from app.keyboards.clarify import build_clarify_keyboard, build_clarify_message
 from app.core.database import get_session_maker
 from app.models.database import Log
 
@@ -22,6 +21,7 @@ CURATOR_CHAT_ID = os.getenv("CURATOR_TELEGRAM_ID", "YOUR_CURATOR_ID")
 
 
 def _ui_language(text: str) -> str:
+    """Fallback определение языка — используется только если FSM state не задан."""
     kk_chars = set("әіңғүұқөһӘІҢҒҮҰҚӨҺ")
     if any(c in kk_chars for c in text):
         return "kk"
@@ -36,20 +36,41 @@ def _ui_language(text: str) -> str:
         for s in kk_suffixes:
             if word.endswith(s) and len(word) > len(s) + 2:
                 return "kk"
-    ru_words = {"как", "что", "это", "для", "или", "где", "нет", "да", "можно", "хочу"}
-    if len(set(text.lower().split()) & ru_words) >= 2:
+    ru_words = {"как", "что", "это", "для", "или", "где", "нет", "да", "можно", "хочу",
+                "привет", "здравствуй", "добрый", "спасибо"}
+    if len(set(text.lower().split()) & ru_words) >= 1:
         return "ru"
     return "kk"
+
+
+async def _get_user_language(state: FSMContext, fallback_text: str = "") -> str:
+    """
+    Получить язык пользователя из FSM state.
+    Если не задан — определяем по тексту, default = kk.
+    """
+    data = await state.get_data()
+    lang = data.get("language")
+    if lang in ("ru", "kk"):
+        return lang
+    return _ui_language(fallback_text) if fallback_text else "kk"
+
+
+def _get_language_reminder(language: str) -> str:
+    if language == "kk":
+        return "\n\n<i>Тілді өзгерту үшін: /language</i>"
+    else:
+        return "\n\n<i>Сменить язык: /language</i>"
 
 
 @router.message(F.text & ~F.text.startswith("/"))
 async def handle_text_message(message: Message, state: FSMContext):
     user_id = str(message.from_user.id)
     question = message.text
-    ui_lang = _ui_language(question)
+
+    # Язык из FSM state (выбранный при /start)
+    user_language = await _get_user_language(state, fallback_text=question)
 
     # ─── Проверка pending clarify state ──────────────────────────────────────
-    # Если пользователь написал текст совпадающий с вариантом — обрабатываем как выбор
     pending = get_pending(user_id)
     if pending is not None:
         option = resolve_choice(user_id, question)
@@ -57,26 +78,25 @@ async def handle_text_message(message: Message, state: FSMContext):
             language = pending["language"]
             logger.info(f"[MSG] Resolved as clarify choice: '{option['title'][:40]}'")
             clear(user_id)
-            # Импортируем _deliver_option из clarify чтобы не дублировать логику
             from app.handlers.clarify import _deliver_option
             await _deliver_option(message, option, language, user_id)
             return
         else:
-            # Текст не совпал с вариантами — сбрасываем pending и обрабатываем как новый вопрос
             logger.info(f"[MSG] Pending clarify cancelled — new question received")
             clear(user_id)
 
-    # ─── Основная логика ─────────────────────────────────────────────────────
-    if ui_lang == "kk":
+    # ─── Индикатор поиска ────────────────────────────────────────────────────
+    if user_language == "kk":
         searching_msg = await message.answer("🔍 Іздеп жатырмын...")
     else:
         searching_msg = await message.answer("🔍 Ищу ответ...")
 
+    # ─── Запрос к API с языком из FSM ────────────────────────────────────────
     ai_client = AIClient()
     response = await ai_client.ask_question(
         question=question,
         user_id=user_id,
-        language="auto",
+        language=user_language,  # передаём выбранный язык пользователем
     )
 
     try:
@@ -85,13 +105,14 @@ async def handle_text_message(message: Message, state: FSMContext):
         pass
 
     if not response:
-        err = "Кешіріңіз, қате орын алды 🔄" if ui_lang == "kk" else "Извините, ошибка 🔄"
+        err = "Кешіріңіз, қате орын алды 🔄" if user_language == "kk" else "Извините, ошибка 🔄"
         await message.answer(err)
         return
 
     action = response.get("action")
     confidence = response.get("confidence", 0.0)
-    language = response.get("detected_language", ui_lang)
+    # Используем язык из FSM — игнорируем detected_language от API
+    language = user_language
 
     logger.info(f"[MSG] action={action} conf={confidence:.3f} lang={language} user={user_id}")
 
@@ -128,9 +149,10 @@ async def handle_text_message(message: Message, state: FSMContext):
             original_query=question,
         )
 
-        header = build_clarify_header(language, question)
+        # Варианты — в тексте, кнопки — только цифры
+        msg_text = build_clarify_message(language, question, options)
         keyboard = build_clarify_keyboard(options, language)
-        await message.answer(header, reply_markup=keyboard)
+        await message.answer(msg_text, reply_markup=keyboard)
 
         await log_user_action(
             telegram_id=user_id,
@@ -140,8 +162,12 @@ async def handle_text_message(message: Message, state: FSMContext):
         )
 
     else:
-        no_ans = "Кешіріңіз, жауап таба алмадым" if language == "kk" else "Извините, не нашёл ответа"
-        await message.answer(response.get("message", no_ans))
+        no_ans_text = response.get("message") or (
+            "Кешіріңіз, жауап таба алмадым" if language == "kk"
+            else "Извините, не нашёл ответа"
+        )
+        no_ans_text += _get_language_reminder(language)
+        await message.answer(no_ans_text)
         await send_to_curator(bot=message.bot, user=message.from_user, question=question)
         await log_user_action(
             telegram_id=user_id,
@@ -181,7 +207,10 @@ async def send_faq_answer(message: Message, response: dict, language: str = "kk"
             logger.error(f"[VIDEO] error: {e}", exc_info=True)
 
         if not video_sent:
-            suffix = "\n\n⚠️ Видео уақытша қолжетімсіз." if language == "kk" else "\n\n⚠️ Видео временно недоступно."
+            suffix = (
+                "\n\n⚠️ Видео уақытша қолжетімсіз." if language == "kk"
+                else "\n\n⚠️ Видео временно недоступно."
+            )
             await message.answer(f"💡 {answer_text}{suffix}")
     else:
         await message.answer(f"💡 {answer_text}")

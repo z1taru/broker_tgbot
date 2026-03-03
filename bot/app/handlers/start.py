@@ -1,7 +1,7 @@
 # bot/app/handlers/start.py
 from aiogram import Router
-from aiogram.filters import CommandStart
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.filters import CommandStart, Command
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 import logging
@@ -14,44 +14,9 @@ class UserLanguage(StatesGroup):
     waiting_for_language = State()
 
 
-@router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
-    """
-    /start — тіл таңдау. Әдепкі қазақша.
-    """
-    user_name = message.from_user.first_name or "дос"
-
-    # ✅ Әдепкі тіл — қазақша (кнопка басылмаса да)
-    await state.update_data(language="kk")
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🇰🇿 Қазақша", callback_data="lang:kk"),
-            InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")
-        ]
-    ])
-
-    # ✅ Қазақша бірінші
-    welcome_text = (
-        f"Сәлем, {user_name}! 👋\n\n"
-        f"Тілді таңдаңыз / Выберите язык:"
-    )
-
-    await message.answer(welcome_text, reply_markup=keyboard)
-    await state.set_state(UserLanguage.waiting_for_language)
-
-
-@router.callback_query(lambda c: c.data.startswith("lang:"))
-async def process_language_selection(callback, state: FSMContext):
-    language = callback.data.split(":")[1]
-
-    await state.update_data(language=language)
-    await state.clear()
-
-    user_name = callback.from_user.first_name or "дос"
-
+def _get_welcome_text(language: str, user_name: str) -> str:
     if language == "kk":
-        welcome_text = (
+        return (
             f"Сәлем, {user_name}! 👋\n\n"
             f"Мен — инвестициялар бойынша AI-кураторың! 📊\n\n"
             f"Акциялар, облигациялар, шот ашу, дивидендтер және "
@@ -64,7 +29,7 @@ async def process_language_selection(callback, state: FSMContext):
             f"<i>Тілді өзгерту: /language</i>"
         )
     else:
-        welcome_text = (
+        return (
             f"Привет, {user_name}! 👋\n\n"
             f"Я — твой AI-куратор по инвестициям! 📊\n\n"
             f"Отвечаю на вопросы об акциях, облигациях, открытии счёта, "
@@ -77,12 +42,47 @@ async def process_language_selection(callback, state: FSMContext):
             f"<i>Сменить язык: /language</i>"
         )
 
+
+@router.message(CommandStart())
+async def cmd_start(message: Message, state: FSMContext):
+    user_name = message.from_user.first_name or "дос"
+
+    # Сохраняем язык по умолчанию — казахский
+    await state.update_data(language="kk")
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🇰🇿 Қазақша", callback_data="lang:kk"),
+            InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")
+        ]
+    ])
+
+    welcome_text = (
+        f"Сәлем, {user_name}! 👋\n\n"
+        f"Тілді таңдаңыз / Выберите язык:"
+    )
+
+    await message.answer(welcome_text, reply_markup=keyboard)
+    await state.set_state(UserLanguage.waiting_for_language)
+
+
+@router.callback_query(lambda c: c.data.startswith("lang:"))
+async def process_language_selection(callback: CallbackQuery, state: FSMContext):
+    language = callback.data.split(":")[1]
+
+    # ВАЖНО: сохраняем язык и очищаем state (но данные language остаются)
+    await state.update_data(language=language)
+    await state.set_state(None)  # сбрасываем state но данные сохраняются
+
+    user_name = callback.from_user.first_name or "дос"
+    welcome_text = _get_welcome_text(language, user_name)
+
     await callback.message.edit_text(welcome_text)
     await callback.answer()
     logger.info(f"User {callback.from_user.id} selected language: {language}")
 
 
-@router.message(lambda message: message.text == "/language")
+@router.message(Command("language"))
 async def cmd_change_language(message: Message, state: FSMContext):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [

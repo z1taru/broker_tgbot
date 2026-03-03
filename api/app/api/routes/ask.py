@@ -27,10 +27,6 @@ def _build_answer_text(faq: dict) -> str:
 
 
 def _pick_clarify_options(faqs_with_scores: list, max_count: int = 4) -> tuple[list, list]:
-    """
-    Выбрать top-4 варианта с дедупликацией по тексту.
-    Возвращает (titles: list[str], faq_ids: list[int]).
-    """
     seen: set[str] = set()
     titles: list[str] = []
     ids: list[int] = []
@@ -56,16 +52,26 @@ async def ask_question(
     gpt = GPTService()
     search = EnhancedSearchService()
 
-    # Classify + embedding параллельно
+    # ─── Определение языка ────────────────────────────────────────────────────
+    # Если бот передал явный язык (ru/kk) — используем его как приоритет.
+    # "auto" — доверяем классификатору.
+    forced_language: str | None = None
+    if request.language in ("ru", "kk"):
+        forced_language = request.language
+
+    # Классификация + embedding параллельно
     clf, query_embedding = await asyncio.gather(
         _classifier.classify(request.question),
         _embedding_service.create_embedding(request.question),
     )
-    language = clf.language
+
+    # Финальный язык: явный из запроса имеет приоритет над classifier
+    language = forced_language if forced_language else clf.language
 
     logger.info(
         f"[ASK] '{request.question[:60]}' | "
-        f"lang={language} vague={clf.vague} intent={clf.intent} conf={clf.confidence:.2f}"
+        f"lang={language} (forced={forced_language}) "
+        f"clf_lang={clf.language} vague={clf.vague} intent={clf.intent} conf={clf.confidence:.2f}"
     )
 
     # Off-topic
@@ -97,7 +103,7 @@ async def ask_question(
             confidence=1.0,
         )
 
-    # Поиск (берём 8 с запасом для дедупа)
+    # ─── Поиск ───────────────────────────────────────────────────────────────
     faqs_with_scores = await search.hybrid_search(
         session=session,
         query_embedding=query_embedding,
@@ -118,7 +124,7 @@ async def ask_question(
     best_faq, best_score = faqs_with_scores[0]
     logger.info(f"[ASK] best_score={best_score:.3f} | '{best_faq['question'][:50]}'")
 
-    # vague=true → всегда clarify с 4 вариантами
+    # ─── vague=true → clarify ─────────────────────────────────────────────────
     if clf.vague:
         titles, faq_ids = _pick_clarify_options(faqs_with_scores, max_count=4)
         clarification = await gpt.generate_clarification_question(
@@ -136,7 +142,7 @@ async def ask_question(
             suggestion_ids=faq_ids,
         )
 
-    # score >= 0.40 → прямой ответ
+    # ─── score >= 0.40 → прямой ответ ────────────────────────────────────────
     if best_score >= 0.40:
         return AskResponse(
             action="direct_answer",
@@ -148,7 +154,7 @@ async def ask_question(
             confidence=best_score,
         )
 
-    # score 0.20–0.40 → несколько близких?
+    # ─── score 0.20–0.40 → несколько близких? ────────────────────────────────
     if best_score >= 0.20:
         close = [(f, s) for f, s in faqs_with_scores[:6] if s >= best_score * 0.80]
         if len(close) >= 2:
@@ -179,7 +185,7 @@ async def ask_question(
             confidence=best_score,
         )
 
-    # score 0.10–0.20
+    # ─── score 0.10–0.20 ─────────────────────────────────────────────────────
     if best_score >= 0.10:
         titles, faq_ids = _pick_clarify_options(faqs_with_scores[:4], max_count=4)
         clarification = await gpt.generate_clarification_question(
@@ -195,7 +201,7 @@ async def ask_question(
             suggestion_ids=faq_ids,
         )
 
-    # < 0.10 → no_match
+    # ─── < 0.10 → no_match ───────────────────────────────────────────────────
     return AskResponse(
         action="no_match",
         question=request.question,
