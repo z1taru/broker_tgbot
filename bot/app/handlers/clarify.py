@@ -1,15 +1,4 @@
 # bot/app/handlers/clarify.py
-"""
-Обработчик clarify-диалога.
-
-Отвечает за:
-  - Inline-кнопки clarify:choose:N  и  clarify:other
-  - Текстовый ввод "1"/"2"/"3"/"4" когда pending_clarify активен
-
-ВАЖНО: НЕТ handler F.text — он блокировал бы все сообщения в aiogram 3.x,
-потому что return из handler не передаёт управление дальше.
-Текстовые варианты (1-4 и точное совпадение) обрабатываются в message.py.
-"""
 import logging
 
 from aiogram import Router, F
@@ -23,18 +12,12 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
-# ─── Вспомогательная функция ──────────────────────────────────────────────────
-
 async def _deliver_option(
     message_or_callback,
     option: dict,
     language: str,
     user_id: str,
 ) -> None:
-    """
-    Доставить ответ по выбранному option.
-    option = {"index": N, "title": "...", "faq_id": 123}
-    """
     if isinstance(message_or_callback, CallbackQuery):
         send_target = message_or_callback.message
     else:
@@ -43,44 +26,41 @@ async def _deliver_option(
     faq_id = option.get("faq_id")
     title = option.get("title", "")
 
-    if faq_id:
-        ai_client = AIClient()
-        response = await ai_client.ask_by_faq_id(faq_id=faq_id)
+    logger.info(f"[Clarify._deliver_option] faq_id={faq_id} title='{title[:50]}' lang={language}")
 
-        if response:
-            await send_faq_answer(send_target, response, language)
-            await log_user_action(
-                telegram_id=user_id,
-                question=title,
-                matched_faq_id=faq_id,
-                confidence=1.0,
-            )
-            return
+    if not faq_id:
+        logger.error(f"[Clarify._deliver_option] faq_id is None/empty — cannot fetch answer")
+        if language == "kk":
+            await send_target.answer("⚠️ Жауапты жүктеу кезінде қате орын алды. Қайталап көріңіз.")
+        else:
+            await send_target.answer("⚠️ Ошибка загрузки ответа. Попробуйте ещё раз.")
+        return
 
-    # Fallback — запросить по заголовку как обычный вопрос
     ai_client = AIClient()
-    response = await ai_client.ask_question(
-        question=title,
-        user_id=user_id,
-        language=language,
-    )
+    response = await ai_client.ask_by_faq_id(faq_id=faq_id)
+
+    logger.info(f"[Clarify._deliver_option] ask_by_faq_id response={response}")
 
     if response and response.get("action") == "direct_answer":
         await send_faq_answer(send_target, response, language)
         await log_user_action(
             telegram_id=user_id,
             question=title,
-            matched_faq_id=response.get("faq_id"),
-            confidence=response.get("confidence", 0.8),
+            matched_faq_id=faq_id,
+            confidence=1.0,
         )
+        return
+
+    logger.error(
+        f"[Clarify._deliver_option] Bad response from ask_by_faq_id: "
+        f"faq_id={faq_id} response={response}"
+    )
+
+    if language == "kk":
+        await send_target.answer("⚠️ Жауапты жүктеу кезінде қате орын алды. Қайталап көріңіз.")
     else:
-        if language == "kk":
-            await send_target.answer("💡 Бұл тақырып бойынша ақпарат табылмады. Басқаша қойып көріңіз.")
-        else:
-            await send_target.answer("💡 По этой теме информация не найдена. Попробуйте переформулировать.")
+        await send_target.answer("⚠️ Ошибка загрузки ответа. Попробуйте ещё раз.")
 
-
-# ─── Обработчик inline-кнопок ─────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("clarify:"))
 async def handle_clarify_callback(callback: CallbackQuery):
@@ -99,22 +79,17 @@ async def handle_clarify_callback(callback: CallbackQuery):
     language = state["language"]
     options = state["options"]
 
-    # ── "Басқа / Другое" ──────────────────────────────────────────────────────
     if data == "clarify:other":
         clear(user_id)
         await callback.message.edit_reply_markup(reply_markup=None)
-
         if language == "kk":
             prompt = "💬 Нақты қандай сұрақ? Қайта жазыңыз:"
         else:
             prompt = "💬 Уточните, какой именно вопрос вас интересует:"
-
         await callback.message.answer(prompt)
         await callback.answer()
-        logger.info(f"[Clarify] user={user_id} chose 'other'")
         return
 
-    # ── clarify:choose:N ──────────────────────────────────────────────────────
     if data.startswith("clarify:choose:"):
         try:
             idx = int(data.split(":")[-1])
@@ -127,7 +102,10 @@ async def handle_clarify_callback(callback: CallbackQuery):
             return
 
         chosen = options[idx]
-        logger.info(f"[Clarify] user={user_id} chose option {idx+1}: '{chosen['title'][:40]}'")
+        logger.info(
+            f"[Clarify] user={user_id} chose idx={idx} "
+            f"faq_id={chosen.get('faq_id')} title='{chosen['title'][:40]}'"
+        )
 
         clear(user_id)
 
@@ -140,20 +118,12 @@ async def handle_clarify_callback(callback: CallbackQuery):
         await _deliver_option(callback, chosen, language, user_id)
 
 
-# ─── Обработчик текстового ввода "1"-"4" ──────────────────────────────────────
-# ТОЛЬКО цифры 1-4 — узкий фильтр, не перехватывает обычные сообщения
-
 @router.message(F.text.regexp(r'^[1-4]$|^[1️⃣2️⃣3️⃣4️⃣]$'))
 async def handle_digit_choice(message: Message):
-    """
-    Перехватывает ТОЛЬКО "1", "2", "3", "4" если есть pending clarify.
-    Узкий regexp — не блокирует обычные сообщения.
-    """
     user_id = str(message.from_user.id)
     state = get_pending(user_id)
 
     if state is None:
-        # Нет pending — не обрабатываем, пусть идёт в message handler
         return
 
     option = resolve_choice(user_id, message.text)
@@ -161,7 +131,5 @@ async def handle_digit_choice(message: Message):
         return
 
     language = state["language"]
-    logger.info(f"[Clarify] user={user_id} digit choice '{message.text}' → '{option['title'][:40]}'")
-
     clear(user_id)
     await _deliver_option(message, option, language, user_id)
