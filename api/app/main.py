@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import faq, health, ask 
+from app.api.routes import faq, health, ask, faq_direct 
 from app.config import settings
 from app.core.database import check_db_connection, close_db_connection
 from app.core.exceptions import AppException
@@ -148,9 +148,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app.include_router(health.router, tags=["Health"])
 app.include_router(faq.router, prefix="/faq", tags=["FAQ"])
 app.include_router(ask.router, prefix="/api", tags=["AI"])
+app.include_router(faq_direct.router, prefix="/api", tags=["FAQ Direct"])
 app.include_router(internal.router, tags=['Internal'])
 
-# ✅ ИСПРАВЛЕНО: убрал app.include_router(ask_v2.router)
+
 
 
 @app.get("/", include_in_schema=False)
