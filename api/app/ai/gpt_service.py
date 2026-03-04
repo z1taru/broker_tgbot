@@ -12,8 +12,6 @@ class GPTService:
         self.client = OpenAI()
         self.model = "gpt-4o-mini"
 
-    # ── System prompts ────────────────────────────────────────────────────────
-
     def _get_base_system_prompt(self, language: str) -> str:
         if language == "kk":
             return """Сіз — инвестициялық брокерлік Telegram-боттың AI-көмекшісісіз.
@@ -45,6 +43,8 @@ class GPTService:
             return """Вы — AI-ассистент Telegram-бота инвестиционного брокера.
 
 ВАЖНО: Все ответы пишите ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.
+ВАЖНО: Контекст из FAQ может быть на казахском — это нормально.
+Твоя задача — понять смысл казахского контекста и передать его НА РУССКОМ.
 
 СТРОГИЕ ОГРАНИЧЕНИЯ:
 1. Отвечай ТОЛЬКО по этим темам:
@@ -68,8 +68,6 @@ class GPTService:
 4. Если тема НЕ брокерская:
    "Я отвечаю только на вопросы об инвестициях и брокерских услугах." """
 
-    # ── Off-topic response ────────────────────────────────────────────────────
-
     def get_off_topic_response(self, language: str) -> str:
         if language == "kk":
             return (
@@ -91,8 +89,6 @@ class GPTService:
                 "• Обмен валюты\n\n"
                 "Если есть вопрос об инвестициях — спрашивайте! 📊"
             )
-
-    # ── Greeting ──────────────────────────────────────────────────────────────
 
     async def generate_persona_response(
         self,
@@ -133,14 +129,14 @@ class GPTService:
         )
         return response.choices[0].message.content.strip()
 
-    # ── Clarification question ────────────────────────────────────────────────
-
     async def generate_clarification_question(
         self,
         user_question: str,
         similar_faqs: List[Tuple[Dict, float]],
         language: str,
     ) -> str:
+        # Варианты всегда на казахском (из БД) — показываем как есть
+        # GPT генерирует только вводный текст на нужном языке
         faq_options = "\n".join(
             f"{i}. {faq['question']}"
             for i, (faq, _) in enumerate(similar_faqs[:4], 1)
@@ -158,10 +154,10 @@ class GPTService:
         else:
             user_prompt = (
                 f'Пользователь спросил: "{user_question}"\n\n'
-                f"Найденные варианты:\n{faq_options}\n\n"
-                "ОБЯЗАТЕЛЬНО: Пиши ответ ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.\n"
-                "Задай уточняющий вопрос. Перечисли варианты с номерами.\n"
-                "Максимум 2 предложения."
+                f"Найденные варианты (на казахском — это контент из базы):\n{faq_options}\n\n"
+                "ОБЯЗАТЕЛЬНО: Пиши вводный текст ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.\n"
+                "Задай уточняющий вопрос на русском. Варианты не перечисляй — они будут показаны отдельно.\n"
+                "Максимум 1-2 предложения."
             )
 
         response = self.client.chat.completions.create(
@@ -171,11 +167,10 @@ class GPTService:
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.2,
-            max_tokens=250,
+            max_tokens=200,
         )
         result = response.choices[0].message.content.strip()
 
-        # Fallback если GPT ответил не на казахском
         if language == "kk" and not self._has_kazakh_chars(result):
             logger.warning("[GPTService] GPT returned non-Kazakh clarification, using template")
             result = self._clarification_template_kk(similar_faqs)
@@ -193,8 +188,6 @@ class GPTService:
             for i, (faq, _) in enumerate(similar_faqs[:4], 1)
         )
         return f"Сіз нені білгіңіз келеді?\n\n{options}"
-
-    # ── No-match response ─────────────────────────────────────────────────────
 
     async def generate_no_match_response(
         self,
@@ -228,14 +221,13 @@ class GPTService:
                 "Задайте вопрос по одной из этих тем 📊"
             )
 
-    # ── Answer from FAQs ──────────────────────────────────────────────────────
-
     async def generate_answer_from_faqs(
         self,
         user_question: str,
         matched_faqs: List[Tuple[Dict, float]],
         language: str,
     ) -> str:
+        # Контекст из БД на казахском — передаём как есть
         context = ""
         for i, (faq, score) in enumerate(matched_faqs[:3], 1):
             context += f"\n[FAQ {i}]\nВопрос: {faq['question']}\nОтвет: {faq['answer_text']}\n"
@@ -253,8 +245,9 @@ class GPTService:
         else:
             user_prompt = (
                 f'Вопрос пользователя: "{user_question}"\n\n'
-                f"Контекст из FAQ:\n{context}\n\n"
-                "ОБЯЗАТЕЛЬНО: Отвечай только на русском языке.\n"
+                f"Контекст из FAQ (на казахском языке — переведи смысл на русский):\n{context}\n\n"
+                "ОБЯЗАТЕЛЬНО: Отвечай ТОЛЬКО НА РУССКОМ ЯЗЫКЕ.\n"
+                "Контекст на казахском — прочитай его, пойми смысл и передай ответ на русском.\n"
                 "Сформируй ответ СТРОГО на основе контекста. Ничего не придумывай.\n"
                 "Коротко и конкретно. Если контекст не подходит — напиши 'Уточните вопрос'."
             )

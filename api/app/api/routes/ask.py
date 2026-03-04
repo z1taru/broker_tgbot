@@ -17,6 +17,9 @@ router = APIRouter()
 _classifier = LLMClassifier(model="gpt-4o-mini")
 _embedding_service = EmbeddingService()
 
+# Язык поиска в БД — всегда казахский (контент только на kk)
+DB_LANGUAGE = "kk"
+
 
 def _build_answer_text(faq: dict) -> str:
     answer = faq["answer_text"]
@@ -52,12 +55,12 @@ async def ask_question(
     gpt = GPTService()
     search = EnhancedSearchService()
 
-    # ─── Определение языка ────────────────────────────────────────────────────
-    # Если бот передал явный язык (ru/kk) — используем его как приоритет.
-    # "auto" — доверяем классификатору.
-    forced_language: str | None = None
+    # ui_language — язык общения с пользователем (выбранный в боте)
+    # Если передан ru/kk явно — используем его для UI
+    # search всегда идёт по kk (контент только там)
+    ui_language: str = "kk"
     if request.language in ("ru", "kk"):
-        forced_language = request.language
+        ui_language = request.language
 
     # Классификация + embedding параллельно
     clf, query_embedding = await asyncio.gather(
@@ -65,13 +68,10 @@ async def ask_question(
         _embedding_service.create_embedding(request.question),
     )
 
-    # Финальный язык: явный из запроса имеет приоритет над classifier
-    language = forced_language if forced_language else clf.language
-
     logger.info(
         f"[ASK] '{request.question[:60]}' | "
-        f"lang={language} (forced={forced_language}) "
-        f"clf_lang={clf.language} vague={clf.vague} intent={clf.intent} conf={clf.confidence:.2f}"
+        f"ui_lang={ui_language} clf_lang={clf.language} "
+        f"vague={clf.vague} intent={clf.intent} conf={clf.confidence:.2f}"
     )
 
     # Off-topic
@@ -79,8 +79,8 @@ async def ask_question(
         return AskResponse(
             action="no_match",
             question=request.question,
-            detected_language=language,
-            message=gpt.get_off_topic_response(language),
+            detected_language=ui_language,
+            message=gpt.get_off_topic_response(ui_language),
             confidence=0.0,
         )
 
@@ -89,26 +89,26 @@ async def ask_question(
         text = await gpt.generate_persona_response(
             user_question=request.question,
             intent="greeting",
-            language=language,
+            language=ui_language,
         )
-        if language == "kk":
+        if ui_language == "kk":
             text += "\n\n💡 Мысалы:\n• Шот қалай ашамыз?\n• Облигация қалай аламыз?\n• Валюта айырбасы"
         else:
             text += "\n\n💡 Например:\n• Как открыть счет?\n• Как купить облигацию?\n• Обмен валюты"
         return AskResponse(
             action="direct_answer",
             question=request.question,
-            detected_language=language,
+            detected_language=ui_language,
             answer_text=text,
             confidence=1.0,
         )
 
-    # ─── Поиск ───────────────────────────────────────────────────────────────
+    # ─── Поиск всегда по kk (контент в БД только на казахском) ──────────────
     faqs_with_scores = await search.hybrid_search(
         session=session,
         query_embedding=query_embedding,
         query_text=request.question,
-        language=language,
+        language=DB_LANGUAGE,  # всегда kk
         limit=8,
     )
 
@@ -116,8 +116,8 @@ async def ask_question(
         return AskResponse(
             action="no_match",
             question=request.question,
-            detected_language=language,
-            message=await gpt.generate_no_match_response(request.question, language),
+            detected_language=ui_language,
+            message=await gpt.generate_no_match_response(request.question, ui_language),
             confidence=0.0,
         )
 
@@ -130,12 +130,12 @@ async def ask_question(
         clarification = await gpt.generate_clarification_question(
             user_question=request.question,
             similar_faqs=faqs_with_scores[:4],
-            language=language,
+            language=ui_language,  # текст вопроса на языке UI
         )
         return AskResponse(
             action="clarify",
             question=request.question,
-            detected_language=language,
+            detected_language=ui_language,
             message=clarification,
             confidence=best_score,
             suggestions=titles,
@@ -147,7 +147,7 @@ async def ask_question(
         return AskResponse(
             action="direct_answer",
             question=request.question,
-            detected_language=language,
+            detected_language=ui_language,
             answer_text=_build_answer_text(best_faq),
             video_url=best_faq.get("video_url"),
             faq_id=best_faq["id"],
@@ -160,25 +160,28 @@ async def ask_question(
         if len(close) >= 2:
             titles, faq_ids = _pick_clarify_options(close, max_count=4)
             clarification = await gpt.generate_clarification_question(
-                request.question, close[:4], language
+                request.question, close[:4], ui_language
             )
             return AskResponse(
                 action="clarify",
                 question=request.question,
-                detected_language=language,
+                detected_language=ui_language,
                 message=clarification,
                 confidence=best_score,
                 suggestions=titles,
                 suggestion_ids=faq_ids,
             )
-        answer = await gpt.generate_answer_from_faqs(request.question, faqs_with_scores[:3], language)
+        # Один результат — GPT синтезирует ответ на языке UI
+        answer = await gpt.generate_answer_from_faqs(
+            request.question, faqs_with_scores[:3], ui_language
+        )
         footer = best_faq.get("description_footer", "")
         if footer and str(footer).strip():
             answer = f"{answer}\n\n<i>{footer}</i>"
         return AskResponse(
             action="direct_answer",
             question=request.question,
-            detected_language=language,
+            detected_language=ui_language,
             answer_text=answer,
             video_url=best_faq.get("video_url"),
             faq_id=best_faq["id"],
@@ -189,12 +192,12 @@ async def ask_question(
     if best_score >= 0.10:
         titles, faq_ids = _pick_clarify_options(faqs_with_scores[:4], max_count=4)
         clarification = await gpt.generate_clarification_question(
-            request.question, faqs_with_scores[:4], language
+            request.question, faqs_with_scores[:4], ui_language
         )
         return AskResponse(
             action="clarify",
             question=request.question,
-            detected_language=language,
+            detected_language=ui_language,
             message=clarification,
             confidence=best_score,
             suggestions=titles,
@@ -205,7 +208,7 @@ async def ask_question(
     return AskResponse(
         action="no_match",
         question=request.question,
-        detected_language=language,
-        message=await gpt.generate_no_match_response(request.question, language),
+        detected_language=ui_language,
+        message=await gpt.generate_no_match_response(request.question, ui_language),
         confidence=best_score,
     )
